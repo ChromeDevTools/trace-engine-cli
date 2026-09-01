@@ -1,0 +1,147 @@
+[
+  {
+    "args": {
+      "name": "Browser"
+    },
+    "cat": "__metadata",
+    "name": "process_name",
+    "ph": "M",
+    "pid": 1,
+    "tid": 1,
+    "ts": 0
+  },
+  {
+    "args": {
+      "name": "Renderer"
+    },
+    "cat": "__metadata",
+    "name": "process_name",
+    "ph": "M",
+    "pid": 100,
+    "tid": 1,
+    "ts": 0
+  },
+  {
+    "args": {
+      "name": "CrBrowserMain"
+    },
+    "cat": "__metadata",
+    "name": "thread_name",
+    "ph": "M",
+    "pid": 1,
+    "tid": 1,
+    "ts": 0
+  },
+  {
+    "args": {
+      "name": "CrRendererMain"
+    },
+    "cat": "__metadata",
+    "name": "thread_name",
+    "ph": "M",
+    "pid": 100,
+    "tid": 1,
+    "ts": 0
+  },
+  {
+    "args": {
+      "data": {
+        "frames": [
+          {
+            "frame": "FRAME_0",
+            "url": "https://example.com/test",
+            "isOutermostMainFrame": true,
+            "isInPrimaryMainFrame": true,
+            "processId": 100
+          }
+        ]
+      }
+    },
+    "cat": "disabled-by-default-devtools.timeline",
+    "name": "TracingStartedInBrowser",
+    "ph": "I",
+    "pid": 1,
+    "tid": 1,
+    "ts": 1000000
+  },
+  {
+    "args": {
+      "frame": "FRAME_0",
+      "data": {
+        "documentLoaderURL": "https://example.com/test",
+        "navigationId": "NAV_1",
+        "isOutermostMainFrame": true,
+        "isInPrimaryMainFrame": true
+      }
+    },
+    "cat": "blink.user_timing",
+    "name": "navigationStart",
+    "ph": "R",
+    "pid": 100,
+    "tid": 1,
+    "ts": 1050000
+  },
+  {
+    "args": {},
+    "cat": "devtools.timeline",
+    "name": "RunTask",
+    "ph": "X",
+    "pid": 100,
+    "tid": 1,
+    "ts": 1100000,
+    "dur": 60000
+  },
+  {
+    "args": {
+      "data": {
+        "requestId": "REQ_1",
+        "url": "https://example.com/test",
+        "mimeType": "text/html",
+        "priority": "VeryHigh"
+      }
+    },
+    "cat": "devtools.timeline",
+    "name": "ResourceSendRequest",
+    "ph": "I",
+    "pid": 100,
+    "tid": 1,
+    "ts": 1060000
+  },
+  {
+    "args": {
+      "data": {
+        "requestId": "REQ_1",
+        "encodedDataLength": 5000,
+        "statusCode": 200,
+        "mimeType": "text/html",
+        "timing": {
+          "requestTime": 1060,
+          "sendStart": 1,
+          "sendEnd": 2,
+          "receiveHeadersStart": 10,
+          "receiveHeadersEnd": 12
+        }
+      }
+    },
+    "cat": "devtools.timeline",
+    "name": "ResourceReceiveResponse",
+    "ph": "I",
+    "pid": 100,
+    "tid": 1,
+    "ts": 1080000
+  },
+  {
+    "args": {
+      "data": {
+        "requestId": "REQ_1",
+        "encodedDataLength": 5000
+      }
+    },
+    "cat": "devtools.timeline",
+    "name": "ResourceFinish",
+    "ph": "I",
+    "pid": 100,
+    "tid": 1,
+    "ts": 1090000
+  }
+]

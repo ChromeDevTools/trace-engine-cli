@@ -1,0 +1,67 @@
+{
+  "traceEvents": [
+    {
+      "args": {
+        "name": "Browser"
+      },
+      "cat": "__metadata",
+      "name": "process_name",
+      "ph": "M",
+      "pid": 1,
+      "tid": 1,
+      "ts": 0
+    },
+    {
+      "args": {
+        "name": "Renderer"
+      },
+      "cat": "__metadata",
+      "name": "process_name",
+      "ph": "M",
+      "pid": 100,
+      "tid": 1,
+      "ts": 0
+    },
+    {
+      "args": {
+        "name": "CrBrowserMain"
+      },
+      "cat": "__metadata",
+      "name": "thread_name",
+      "ph": "M",
+      "pid": 1,
+      "tid": 1,
+      "ts": 0
+    },
+    {
+      "args": {
+        "name": "CrRendererMain"
+      },
+      "cat": "__metadata",
+      "name": "thread_name",
+      "ph": "M",
+      "pid": 100,
+      "tid": 1,
+      "ts": 0
+    },
+    {
+      "args": {
+        "data": {
+          "frames": [
+            {
+              "frame": "FRAME_0",
+              "url": "https://example.com/wrapped",
+              "isOutermostMainFrame": true
+            }
+          ]
+        }
+      },
+      "cat": "disabled-by-default-devtools.timeline",
+      "name": "TracingStartedInBrowser",
+      "ph": "I",
+      "pid": 1,
+      "tid": 1,
+      "ts": 2000000
+    }
+  ]
+}

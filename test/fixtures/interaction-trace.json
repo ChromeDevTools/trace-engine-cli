@@ -1,0 +1,89 @@
+[
+  {
+    "args": { "name": "Browser" },
+    "cat": "__metadata",
+    "name": "process_name",
+    "ph": "M",
+    "pid": 1,
+    "tid": 1,
+    "ts": 0
+  },
+  {
+    "args": { "name": "Renderer" },
+    "cat": "__metadata",
+    "name": "process_name",
+    "ph": "M",
+    "pid": 100,
+    "tid": 1,
+    "ts": 0
+  },
+  {
+    "args": { "name": "CrBrowserMain" },
+    "cat": "__metadata",
+    "name": "thread_name",
+    "ph": "M",
+    "pid": 1,
+    "tid": 1,
+    "ts": 0
+  },
+  {
+    "args": { "name": "CrRendererMain" },
+    "cat": "__metadata",
+    "name": "thread_name",
+    "ph": "M",
+    "pid": 100,
+    "tid": 1,
+    "ts": 0
+  },
+  {
+    "args": {
+      "data": {
+        "frames": [
+          {
+            "frame": "FRAME_0",
+            "url": "https://example.com/interactive",
+            "isOutermostMainFrame": true,
+            "isInPrimaryMainFrame": true,
+            "processId": 100
+          }
+        ]
+      }
+    },
+    "cat": "disabled-by-default-devtools.timeline",
+    "name": "TracingStartedInBrowser",
+    "ph": "I",
+    "pid": 1,
+    "tid": 1,
+    "ts": 1000000
+  },
+  {
+    "args": {
+      "data": {
+        "interactionId": 101,
+        "duration": 250,
+        "timeStamp": 1200,
+        "processingStart": 1205,
+        "processingEnd": 1405,
+        "type": "click",
+        "nodeName": "BUTTON"
+      }
+    },
+    "cat": "devtools.timeline",
+    "name": "EventTiming",
+    "ph": "b",
+    "id": "0x1",
+    "pid": 100,
+    "tid": 1,
+    "ts": 1200000
+  },
+  {
+    "args": {},
+    "cat": "devtools.timeline",
+    "name": "EventTiming",
+    "ph": "e",
+    "id": "0x1",
+    "pid": 100,
+    "tid": 1,
+    "ts": 1450000
+  }
+]

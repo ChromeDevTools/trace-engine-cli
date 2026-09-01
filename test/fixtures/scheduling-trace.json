@@ -1,0 +1,115 @@
+[
+  {
+    "args": { "name": "Browser" },
+    "cat": "__metadata",
+    "name": "process_name",
+    "ph": "M",
+    "pid": 1,
+    "tid": 1,
+    "ts": 0
+  },
+  {
+    "args": { "name": "Renderer" },
+    "cat": "__metadata",
+    "name": "process_name",
+    "ph": "M",
+    "pid": 100,
+    "tid": 1,
+    "ts": 0
+  },
+  {
+    "args": { "name": "CrBrowserMain" },
+    "cat": "__metadata",
+    "name": "thread_name",
+    "ph": "M",
+    "pid": 1,
+    "tid": 1,
+    "ts": 0
+  },
+  {
+    "args": { "name": "CrRendererMain" },
+    "cat": "__metadata",
+    "name": "thread_name",
+    "ph": "M",
+    "pid": 100,
+    "tid": 1,
+    "ts": 0
+  },
+  {
+    "args": {
+      "data": {
+        "frames": [
+          {
+            "frame": "FRAME_0",
+            "url": "https://example.com/scheduling",
+            "isOutermostMainFrame": true,
+            "isInPrimaryMainFrame": true,
+            "processId": 100
+          }
+        ]
+      }
+    },
+    "cat": "disabled-by-default-devtools.timeline",
+    "name": "TracingStartedInBrowser",
+    "ph": "I",
+    "pid": 1,
+    "tid": 1,
+    "ts": 1000000
+  },
+  {
+    "args": { "data": { "id": 1 } },
+    "cat": "devtools.timeline",
+    "name": "RequestAnimationFrame",
+    "ph": "I",
+    "pid": 100,
+    "tid": 1,
+    "ts": 1100000
+  },
+  {
+    "args": { "data": { "id": 1 } },
+    "cat": "devtools.timeline",
+    "name": "CancelAnimationFrame",
+    "ph": "I",
+    "pid": 100,
+    "tid": 1,
+    "ts": 1150000
+  },
+  {
+    "args": { "data": { "id": 2 } },
+    "cat": "devtools.timeline",
+    "name": "RequestAnimationFrame",
+    "ph": "I",
+    "pid": 100,
+    "tid": 1,
+    "ts": 1200000
+  },
+  {
+    "args": { "data": { "id": 2 } },
+    "cat": "devtools.timeline",
+    "name": "FireAnimationFrame",
+    "ph": "X",
+    "pid": 100,
+    "tid": 1,
+    "ts": 1250000,
+    "dur": 5000
+  },
+  {
+    "args": { "data": { "timerId": 10 } },
+    "cat": "devtools.timeline",
+    "name": "TimerInstall",
+    "ph": "I",
+    "pid": 100,
+    "tid": 1,
+    "ts": 1300000
+  },
+  {
+    "args": { "data": { "timerId": 10 } },
+    "cat": "devtools.timeline",
+    "name": "TimerFire",
+    "ph": "X",
+    "pid": 100,
+    "tid": 1,
+    "ts": 1350000,
+    "dur": 2000
+  }
+]

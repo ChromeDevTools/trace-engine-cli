@@ -1,0 +1,42 @@
+{
+  "name": "trace-cli",
+  "version": "0.1.0",
+  "description": "CLI tool for inspecting Chromium performance traces on top of DevTools Trace Engine",
+  "type": "module",
+  "bin": {
+    "trace-cli": "./dist/bin/trace-cli.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "bundle:engine": "tsx scripts/bundle-engine.ts",
+    "test": "node --test --import tsx/esm 'test/**/*.test.ts' 'test/*.test.ts'",
+    "check": "biome check .",
+    "format": "biome format --write ."
+  },
+  "keywords": [
+    "trace",
+    "devtools",
+    "performance",
+    "cli",
+    "toon"
+  ],
+  "author": "Google LLC",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ChromeDevTools/trace-engine-cli.git"
+  },
+  "dependencies": {
+    "@paulirish/trace_engine": "^0.0.65",
+    "@toon-format/toon": "^4.1.1",
+    "yargs": "^18.1.0"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.5.11",
+    "@types/node": "^26.4.0",
+    "@types/yargs": "^17.0.35",
+    "esbuild": "^0.28.2",
+    "tsx": "^4.23.13",
+    "typescript": "^7.0.2"
+  }
+}
