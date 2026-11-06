@@ -52,5 +52,5 @@ jobs:
           npm test
           npm run build
 
-      - name: Publish to npm
-        run: npm publish --provenance --access public
+      - name: Stage package on npm
+        run: npm stage publish --provenance --access public
