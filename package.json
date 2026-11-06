@@ -1,13 +1,18 @@
 {
-  "name": "trace-cli",
-  "version": "0.1.0",
+  "name": "trace-engine-cli",
+  "version": "0.0.1",
   "description": "CLI tool for inspecting Chromium performance traces on top of DevTools Trace Engine",
   "type": "module",
   "bin": {
     "trace-cli": "./dist/bin/trace-cli.js"
   },
+  "files": [
+    "dist/bin",
+    "dist/src"
+  ],
   "scripts": {
-    "build": "tsc",
+    "clean": "node --input-type=module --eval \"import fs from 'node:fs'; fs.rmSync('dist', {recursive: true, force: true});\"",
+    "build": "npm run clean && tsc",
     "bundle:engine": "tsx scripts/bundle-engine.ts",
     "test": "node --test --import tsx/esm 'test/**/*.test.ts' 'test/*.test.ts'",
     "check": "biome check .",
