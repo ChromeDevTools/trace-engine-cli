@@ -17,47 +17,25 @@ Raw Chromium performance traces are massive (often 20MB–200MB+ uncompressed), 
 
 ---
 
-## Installation & Setup
+## Installation
+
+Install [`trace-engine-cli`](https://www.npmjs.com/package/trace-engine-cli) globally from npm to add `trace-cli` to your `$PATH`:
 
 ```bash
-# Clone the repository
-git clone https://github.com/ChromeDevTools/trace-engine-cli.git
-cd trace-engine-cli
+npm install -g trace-engine-cli
+trace-cli /path/to/trace.json.gz
+```
 
-# Install dependencies
-npm install
+Or run it directly with `npx`:
 
-# Build TypeScript to dist/
-npm run build
-
-# Link globally across your system
-npm link
+```bash
+npx trace-engine-cli /path/to/trace.json.gz
 ```
 
 ---
 
-## Using Locally & Pointing AI Agents
+## Pointing AI Agents at `trace-cli`
 
-### 1. Global Command (Recommended)
-After running `npm run build && npm link`, `trace-cli` is globally available on your `$PATH`:
-
-```bash
-trace-cli /path/to/trace.json.gz
-```
-
-### 2. Direct Execution Alternatives
-If you prefer not to link globally:
-
-- **Compiled JavaScript**:
-  ```bash
-  node /path/to/trace-engine-cli/dist/bin/trace-cli.js /path/to/trace.json.gz
-  ```
-- **Live TypeScript (no build step)**:
-  ```bash
-  npx tsx /path/to/trace-engine-cli/bin/trace-cli.ts /path/to/trace.json.gz
-  ```
-
-### 3. Pointing AI Agents at `trace-cli`
 To equip an AI assistant (or agent in your workspace) to analyze performance traces, add the following instruction to the agent's prompt or project rules:
 
 > "To inspect Chromium performance traces (`.json` or `.json.gz`), run `trace-cli <file>`. Inspect the default overview, then use the suggested drill-down commands (`insights`, `tasks`, `find`, `profile`, `diff`, `scheduling`, `network`, `interactions`, `shifts`, `events`, `navigations`) for targeted diagnostics, or `scan <dir-or-glob>` to search across multiple fixtures."
@@ -341,12 +319,16 @@ This compiles a zero-dependency bundle into `src/engine/vendor/trace_engine.js`.
 ## Development & Testing
 
 ```bash
+# Install dependencies, build, and link locally
+npm install
+npm run build
+npm link
+
 # Run test suite (118+ unit tests via node:test)
 npm test
 
 # Run linter and type-checking (Biome & tsc)
 npm run check
-npm run build
 
 # Auto-format codebase
 npm run format
