@@ -47,7 +47,7 @@ function parseCommaList(val?: unknown): string[] | undefined {
 
 export async function runCli(argv: string[]): Promise<void> {
   const cli = yargs(hideBin(argv))
-    .scriptName('trace-cli')
+    .scriptName('trace-engine-cli')
     .usage('$0 [command] <file> [options]')
     .option('format', {
       alias: 'f',
@@ -659,7 +659,7 @@ export async function runCli(argv: string[]): Promise<void> {
           const arg = msg.replace('Unknown argument:', '').trim();
           if (arg.endsWith('.json') || arg.endsWith('.json.gz')) {
             throw new Error(
-              `Command accepts only a single trace file. Received multiple files. To search across multiple files or directories, use:\n  trace-cli scan <dir-or-glob> [options]`,
+              `Command accepts only a single trace file. Received multiple files. To search across multiple files or directories, use:\n  trace-engine-cli scan <dir-or-glob> [options]`,
             );
           }
         }

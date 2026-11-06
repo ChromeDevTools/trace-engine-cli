@@ -34,7 +34,7 @@ async function captureCliOutput(args: string[]): Promise<string> {
 describe('CLI Dispatcher', () => {
   test('runs overview command by default for a trace file', async () => {
     const fixturePath = path.resolve(import.meta.dirname, 'fixtures/basic-trace.json');
-    const output = await captureCliOutput(['node', 'trace-cli', fixturePath]);
+    const output = await captureCliOutput(['node', 'trace-engine-cli', fixturePath]);
     assert.ok(output.includes('bounds:'));
     assert.ok(output.includes('https://example.com/test'));
     assert.ok(output.includes('Drill-down commands:'));
@@ -44,7 +44,7 @@ describe('CLI Dispatcher', () => {
     const fixturePath = path.resolve(import.meta.dirname, 'fixtures/basic-trace.json');
     const output = await captureCliOutput([
       'node',
-      'trace-cli',
+      'trace-engine-cli',
       'overview',
       fixturePath,
       '--format',
@@ -59,7 +59,7 @@ describe('CLI Dispatcher', () => {
     const fixturePath = path.resolve(import.meta.dirname, 'fixtures/basic-trace.json');
     const output = await captureCliOutput([
       'node',
-      'trace-cli',
+      'trace-engine-cli',
       'tasks',
       fixturePath,
       '--min-duration',
@@ -75,7 +75,7 @@ describe('CLI Dispatcher', () => {
     const fixturePath = path.resolve(import.meta.dirname, 'fixtures/basic-trace.json');
     const output = await captureCliOutput([
       'node',
-      'trace-cli',
+      'trace-engine-cli',
       'find',
       fixturePath,
       '--function',
@@ -91,7 +91,7 @@ describe('CLI Dispatcher', () => {
     const fixturePath = path.resolve(import.meta.dirname, 'fixtures/basic-trace.json');
     const output = await captureCliOutput([
       'node',
-      'trace-cli',
+      'trace-engine-cli',
       'profile',
       fixturePath,
       '--time-range',
@@ -107,7 +107,7 @@ describe('CLI Dispatcher', () => {
     const fixturePath = path.resolve(import.meta.dirname, 'fixtures/basic-trace.json');
     const output = await captureCliOutput([
       'node',
-      'trace-cli',
+      'trace-engine-cli',
       'diff',
       fixturePath,
       '--window-a',
@@ -124,7 +124,7 @@ describe('CLI Dispatcher', () => {
     const fixturePath = path.resolve(import.meta.dirname, 'fixtures/basic-trace.json');
     const output = await captureCliOutput([
       'node',
-      'trace-cli',
+      'trace-engine-cli',
       'diff',
       fixturePath,
       '--window-a',
@@ -140,14 +140,14 @@ describe('CLI Dispatcher', () => {
 
   test('runs scheduling subcommand', async () => {
     const fixturePath = path.resolve(import.meta.dirname, 'fixtures/scheduling-trace.json');
-    const output = await captureCliOutput(['node', 'trace-cli', 'scheduling', fixturePath]);
+    const output = await captureCliOutput(['node', 'trace-engine-cli', 'scheduling', fixturePath]);
     assert.ok(output.includes('animationFrames:'));
     assert.ok(output.includes('timers:'));
   });
 
   test('runs network subcommand', async () => {
     const fixturePath = path.resolve(import.meta.dirname, 'fixtures/basic-trace.json');
-    const output = await captureCliOutput(['node', 'trace-cli', 'network', fixturePath]);
+    const output = await captureCliOutput(['node', 'trace-engine-cli', 'network', fixturePath]);
     assert.ok(output.includes('requests[1]{'));
     assert.ok(output.includes('https://example.com/test'));
   });
@@ -156,7 +156,7 @@ describe('CLI Dispatcher', () => {
     const fixturePath = path.resolve(import.meta.dirname, 'fixtures/shifts-trace.json');
     const output = await captureCliOutput([
       'node',
-      'trace-cli',
+      'trace-engine-cli',
       'events',
       fixturePath,
       '--name',
@@ -171,18 +171,29 @@ describe('CLI Dispatcher', () => {
 
   test('runs navigations subcommand and navs alias', async () => {
     const fixturePath = path.resolve(import.meta.dirname, 'fixtures/basic-trace.json');
-    const navOutput = await captureCliOutput(['node', 'trace-cli', 'navigations', fixturePath]);
+    const navOutput = await captureCliOutput([
+      'node',
+      'trace-engine-cli',
+      'navigations',
+      fixturePath,
+    ]);
     assert.ok(navOutput.includes('NAV_1'));
     assert.ok(navOutput.includes('https://example.com/test'));
 
-    const aliasOutput = await captureCliOutput(['node', 'trace-cli', 'navs', fixturePath]);
+    const aliasOutput = await captureCliOutput(['node', 'trace-engine-cli', 'navs', fixturePath]);
     assert.ok(aliasOutput.includes('NAV_1'));
     assert.ok(aliasOutput.includes('https://example.com/test'));
   });
 
   test('runs shifts subcommand with --events flag', async () => {
     const fixturePath = path.resolve(import.meta.dirname, 'fixtures/shifts-trace.json');
-    const output = await captureCliOutput(['node', 'trace-cli', 'shifts', fixturePath, '--events']);
+    const output = await captureCliOutput([
+      'node',
+      'trace-engine-cli',
+      'shifts',
+      fixturePath,
+      '--events',
+    ]);
     assert.ok(output.includes('NAV_1'));
     assert.ok(output.includes('banner-ad'));
   });
@@ -191,7 +202,7 @@ describe('CLI Dispatcher', () => {
     const fixturePath = path.resolve(import.meta.dirname, 'fixtures/basic-trace.json');
     const output = await captureCliOutput([
       'node',
-      'trace-cli',
+      'trace-engine-cli',
       'insights',
       fixturePath,
       '--navigation',
@@ -204,7 +215,7 @@ describe('CLI Dispatcher', () => {
     const fixturesDir = path.resolve(import.meta.dirname, 'fixtures');
     const output = await captureCliOutput([
       'node',
-      'trace-cli',
+      'trace-engine-cli',
       'scan',
       fixturesDir,
       '--name',
@@ -219,7 +230,7 @@ describe('CLI Dispatcher', () => {
     const fixturesDir = path.resolve(import.meta.dirname, 'fixtures');
     const output = await captureCliOutput([
       'node',
-      'trace-cli',
+      'trace-engine-cli',
       'scan',
       fixturesDir,
       '--grep',
@@ -235,14 +246,14 @@ describe('CLI Dispatcher', () => {
     const file1 = path.resolve(import.meta.dirname, 'fixtures/basic-trace.json');
     const file2 = path.resolve(import.meta.dirname, 'fixtures/shifts-trace.json');
     await assert.rejects(async () => {
-      await captureCliOutput(['node', 'trace-cli', 'events', file1, file2]);
-    }, /Command accepts only a single trace file\. Received multiple files\. To search across multiple files or directories, use:\n {2}trace-cli scan <dir-or-glob>/);
+      await captureCliOutput(['node', 'trace-engine-cli', 'events', file1, file2]);
+    }, /Command accepts only a single trace file\. Received multiple files\. To search across multiple files or directories, use:\n {2}trace-engine-cli scan <dir-or-glob>/);
   });
 
   test('rejects directory on single-file command with scan hint', async () => {
     const fixturesDir = path.resolve(import.meta.dirname, 'fixtures');
     await assert.rejects(async () => {
-      await captureCliOutput(['node', 'trace-cli', 'events', fixturesDir]);
-    }, /is a directory\. Trace engine commands accept a single trace file\. To search across multiple files or directories, use: trace-cli scan/);
+      await captureCliOutput(['node', 'trace-engine-cli', 'events', fixturesDir]);
+    }, /is a directory\. Trace engine commands accept a single trace file\. To search across multiple files or directories, use: trace-engine-cli scan/);
   });
 });

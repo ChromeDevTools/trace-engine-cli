@@ -1,17 +1,17 @@
 # Agent Guide (`AGENTS.md`)
 
-This guide is for AI coding assistants and autonomous agents working on the `trace-cli` codebase.
+This guide is for AI coding assistants and autonomous agents working on the `trace-engine-cli` codebase.
 
 ---
 
 ## 1. Codebase Overview & Directory Structure
 
-`trace-cli` is a Node.js CLI tool written in TypeScript (ESM) that parses Chromium performance traces via Chrome DevTools' Trace Engine (`@paulirish/trace_engine`) and formats summaries using TOON (`@toon-format/toon`) and Markdown.
+`trace-engine-cli` is a Node.js CLI tool written in TypeScript (ESM) that parses Chromium performance traces via Chrome DevTools' Trace Engine (`@paulirish/trace_engine`) and formats summaries using TOON (`@toon-format/toon`) and Markdown.
 
 ```
 trace-engine-cli/
 ├── bin/
-│   └── trace-cli.ts              # Executable entry point shim
+│   └── trace-engine-cli.ts       # Executable entry point shim
 ├── src/
 │   ├── cli.ts                    # Yargs CLI definitions & command routing
 │   ├── engine/

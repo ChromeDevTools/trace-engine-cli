@@ -121,7 +121,7 @@ export async function loadTraceFromFile(
     }
     if ((err as NodeJS.ErrnoException).code === 'EISDIR') {
       throw new Error(
-        `'${filePath}' is a directory. Trace engine commands accept a single trace file. To search across multiple files or directories, use: trace-cli scan "${filePath}" [options]`,
+        `'${filePath}' is a directory. Trace engine commands accept a single trace file. To search across multiple files or directories, use: trace-engine-cli scan "${filePath}" [options]`,
       );
     }
     throw err;

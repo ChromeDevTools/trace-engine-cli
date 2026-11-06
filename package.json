@@ -4,7 +4,7 @@
   "description": "CLI tool for inspecting Chromium performance traces on top of DevTools Trace Engine",
   "type": "module",
   "bin": {
-    "trace-cli": "./dist/bin/trace-cli.js"
+    "trace-engine-cli": "./dist/bin/trace-engine-cli.js"
   },
   "files": [
     "dist/bin",

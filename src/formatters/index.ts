@@ -36,39 +36,39 @@ export interface FormatOptions {
 
 const NEXT_STEPS_HINT_TOON = `
 # Drill-down commands:
-# - trace-cli insights <file> [--category <lcp|inp|cls|render-blocking|third-parties>] [--navigation <id>]
-# - trace-cli tasks <file> [--min-duration <ms>] [--tree <bottom-up|top-down>] [--top <n>]
-# - trace-cli find <file> --function <name> [--time-range <start,end>]
-# - trace-cli profile <file> [--time-range <start,end>] [--bucket <ms>]
-# - trace-cli diff <file> --window-a <start,end> --window-b <start,end>
-# - trace-cli scheduling <file> [--time-range <start,end>]
-# - trace-cli network <file> [--render-blocking] [--slowest <n>] [--initiator-chain <url>]
-# - trace-cli interactions <file>
-# - trace-cli shifts <file> [--events]
-# - trace-cli events <file> [--name <names>] [--cat <category>] [--fields <fields>]
-# - trace-cli navigations <file>
+# - trace-engine-cli insights <file> [--category <lcp|inp|cls|render-blocking|third-parties>] [--navigation <id>]
+# - trace-engine-cli tasks <file> [--min-duration <ms>] [--tree <bottom-up|top-down>] [--top <n>]
+# - trace-engine-cli find <file> --function <name> [--time-range <start,end>]
+# - trace-engine-cli profile <file> [--time-range <start,end>] [--bucket <ms>]
+# - trace-engine-cli diff <file> --window-a <start,end> --window-b <start,end>
+# - trace-engine-cli scheduling <file> [--time-range <start,end>]
+# - trace-engine-cli network <file> [--render-blocking] [--slowest <n>] [--initiator-chain <url>]
+# - trace-engine-cli interactions <file>
+# - trace-engine-cli shifts <file> [--events]
+# - trace-engine-cli events <file> [--name <names>] [--cat <category>] [--fields <fields>]
+# - trace-engine-cli navigations <file>
 #
 # Multi-file search:
-# - trace-cli scan <dir-or-glob> [--name <names>] [--cat <category>] [--grep <pattern>]
+# - trace-engine-cli scan <dir-or-glob> [--name <names>] [--cat <category>] [--grep <pattern>]
 `.trim();
 
 const NEXT_STEPS_HINT_MD = `
 ---
 ### Drill-down Commands
-- \`trace-cli insights <file> [--category <lcp|inp|cls|render-blocking|third-parties>] [--navigation <id>]\`
-- \`trace-cli tasks <file> [--min-duration <ms>] [--tree <bottom-up|top-down>] [--top <n>]\`
-- \`trace-cli find <file> --function <name> [--time-range <start,end>]\`
-- \`trace-cli profile <file> [--time-range <start,end>] [--bucket <ms>]\`
-- \`trace-cli diff <file> --window-a <start,end> --window-b <start,end>\`
-- \`trace-cli scheduling <file> [--time-range <start,end>]\`
-- \`trace-cli network <file> [--render-blocking] [--slowest <n>] [--initiator-chain <url>]\`
-- \`trace-cli interactions <file>\`
-- \`trace-cli shifts <file> [--events]\`
-- \`trace-cli events <file> [--name <names>] [--cat <category>] [--fields <fields>]\`
-- \`trace-cli navigations <file>\`
+- \`trace-engine-cli insights <file> [--category <lcp|inp|cls|render-blocking|third-parties>] [--navigation <id>]\`
+- \`trace-engine-cli tasks <file> [--min-duration <ms>] [--tree <bottom-up|top-down>] [--top <n>]\`
+- \`trace-engine-cli find <file> --function <name> [--time-range <start,end>]\`
+- \`trace-engine-cli profile <file> [--time-range <start,end>] [--bucket <ms>]\`
+- \`trace-engine-cli diff <file> --window-a <start,end> --window-b <start,end>\`
+- \`trace-engine-cli scheduling <file> [--time-range <start,end>]\`
+- \`trace-engine-cli network <file> [--render-blocking] [--slowest <n>] [--initiator-chain <url>]\`
+- \`trace-engine-cli interactions <file>\`
+- \`trace-engine-cli shifts <file> [--events]\`
+- \`trace-engine-cli events <file> [--name <names>] [--cat <category>] [--fields <fields>]\`
+- \`trace-engine-cli navigations <file>\`
 
 ### Multi-file Search
-- \`trace-cli scan <dir-or-glob> [--name <names>] [--cat <category>] [--grep <pattern>]\`
+- \`trace-engine-cli scan <dir-or-glob> [--name <names>] [--cat <category>] [--grep <pattern>]\`
 `.trim();
 
 export function formatResult(data: unknown, options: FormatOptions): string {
