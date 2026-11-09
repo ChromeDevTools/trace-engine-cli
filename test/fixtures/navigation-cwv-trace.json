@@ -1,0 +1,473 @@
+[
+  {
+    "args": {
+      "name": "Browser"
+    },
+    "cat": "__metadata",
+    "name": "process_name",
+    "ph": "M",
+    "pid": 1,
+    "tid": 1,
+    "ts": 0
+  },
+  {
+    "args": {
+      "name": "Renderer"
+    },
+    "cat": "__metadata",
+    "name": "process_name",
+    "ph": "M",
+    "pid": 100,
+    "tid": 1,
+    "ts": 0
+  },
+  {
+    "args": {
+      "name": "CrBrowserMain"
+    },
+    "cat": "__metadata",
+    "name": "thread_name",
+    "ph": "M",
+    "pid": 1,
+    "tid": 1,
+    "ts": 0
+  },
+  {
+    "args": {
+      "name": "CrRendererMain"
+    },
+    "cat": "__metadata",
+    "name": "thread_name",
+    "ph": "M",
+    "pid": 100,
+    "tid": 1,
+    "ts": 0
+  },
+  {
+    "args": {
+      "data": {
+        "frames": [
+          {
+            "frame": "FRAME_0",
+            "url": "https://example.com/app",
+            "isOutermostMainFrame": true,
+            "isInPrimaryMainFrame": true,
+            "processId": 100
+          }
+        ]
+      }
+    },
+    "cat": "disabled-by-default-devtools.timeline",
+    "name": "TracingStartedInBrowser",
+    "ph": "I",
+    "pid": 1,
+    "tid": 1,
+    "ts": 1000000
+  },
+  {
+    "args": {
+      "frame": "FRAME_0",
+      "data": {
+        "documentLoaderURL": "https://example.com/app",
+        "navigationId": "NAV_1",
+        "isOutermostMainFrame": true,
+        "isInPrimaryMainFrame": true
+      }
+    },
+    "cat": "blink.user_timing",
+    "name": "navigationStart",
+    "ph": "R",
+    "pid": 100,
+    "tid": 1,
+    "ts": 1050000
+  },
+  {
+    "args": {
+      "data": {
+        "requestId": "NAV_1",
+        "frame": "FRAME_0",
+        "url": "https://example.com/app",
+        "mimeType": "text/html",
+        "priority": "VeryHigh"
+      }
+    },
+    "cat": "devtools.timeline",
+    "name": "ResourceSendRequest",
+    "ph": "I",
+    "pid": 100,
+    "tid": 1,
+    "ts": 1060000
+  },
+  {
+    "args": {
+      "data": {
+        "requestId": "NAV_1",
+        "frame": "FRAME_0",
+        "encodedDataLength": 12000,
+        "statusCode": 200,
+        "mimeType": "text/html",
+        "timing": {
+          "requestTime": 1.06,
+          "dnsStart": 5,
+          "dnsEnd": 15,
+          "connectStart": 15,
+          "connectEnd": 35,
+          "sslStart": 20,
+          "sslEnd": 35,
+          "sendStart": 35,
+          "sendEnd": 40,
+          "receiveHeadersStart": 55,
+          "receiveHeadersEnd": 60
+        }
+      }
+    },
+    "cat": "devtools.timeline",
+    "name": "ResourceReceiveResponse",
+    "ph": "I",
+    "pid": 100,
+    "tid": 1,
+    "ts": 1120000
+  },
+  {
+    "args": {
+      "data": {
+        "requestId": "NAV_1",
+        "frame": "FRAME_0",
+        "encodedDataLength": 12000
+      }
+    },
+    "cat": "devtools.timeline",
+    "name": "ResourceFinish",
+    "ph": "I",
+    "pid": 100,
+    "tid": 1,
+    "ts": 1150000
+  },
+  {
+    "args": {
+      "data": {
+        "requestId": "REQ_CSS",
+        "frame": "FRAME_0",
+        "url": "https://example.com/styles.css",
+        "mimeType": "text/css",
+        "priority": "VeryHigh",
+        "renderBlocking": "blocking",
+        "initiator": {
+          "type": "parser",
+          "url": "https://example.com/app"
+        }
+      }
+    },
+    "cat": "devtools.timeline",
+    "name": "ResourceSendRequest",
+    "ph": "I",
+    "pid": 100,
+    "tid": 1,
+    "ts": 1160000
+  },
+  {
+    "args": {
+      "data": {
+        "requestId": "REQ_CSS",
+        "frame": "FRAME_0",
+        "encodedDataLength": 4096,
+        "statusCode": 200,
+        "mimeType": "text/css",
+        "timing": {
+          "requestTime": 1.16,
+          "sendStart": 2,
+          "sendEnd": 4,
+          "receiveHeadersStart": 70,
+          "receiveHeadersEnd": 80
+        }
+      }
+    },
+    "cat": "devtools.timeline",
+    "name": "ResourceReceiveResponse",
+    "ph": "I",
+    "pid": 100,
+    "tid": 1,
+    "ts": 1240000
+  },
+  {
+    "args": {
+      "data": {
+        "requestId": "REQ_CSS",
+        "frame": "FRAME_0",
+        "encodedDataLength": 4096
+      }
+    },
+    "cat": "devtools.timeline",
+    "name": "ResourceFinish",
+    "ph": "I",
+    "pid": 100,
+    "tid": 1,
+    "ts": 1260000
+  },
+  {
+    "args": {
+      "data": {
+        "requestId": "REQ_FONT",
+        "frame": "FRAME_0",
+        "url": "https://example.com/font.woff2",
+        "mimeType": "font/woff2",
+        "priority": "High",
+        "renderBlocking": "non_blocking",
+        "initiator": {
+          "type": "parser",
+          "url": "https://example.com/styles.css"
+        }
+      }
+    },
+    "cat": "devtools.timeline",
+    "name": "ResourceSendRequest",
+    "ph": "I",
+    "pid": 100,
+    "tid": 1,
+    "ts": 1250000
+  },
+  {
+    "args": {
+      "data": {
+        "requestId": "REQ_FONT",
+        "frame": "FRAME_0",
+        "encodedDataLength": 16384,
+        "statusCode": 200,
+        "mimeType": "font/woff2"
+      }
+    },
+    "cat": "devtools.timeline",
+    "name": "ResourceReceiveResponse",
+    "ph": "I",
+    "pid": 100,
+    "tid": 1,
+    "ts": 1300000
+  },
+  {
+    "args": {
+      "data": {
+        "requestId": "REQ_FONT",
+        "frame": "FRAME_0",
+        "encodedDataLength": 16384
+      }
+    },
+    "cat": "devtools.timeline",
+    "name": "ResourceFinish",
+    "ph": "I",
+    "pid": 100,
+    "tid": 1,
+    "ts": 1320000
+  },
+  {
+    "args": {
+      "data": {
+        "requestId": "REQ_IMG",
+        "frame": "FRAME_0",
+        "url": "https://example.com/hero.jpg",
+        "mimeType": "image/jpeg",
+        "priority": "High",
+        "renderBlocking": "non_blocking",
+        "initiator": {
+          "type": "parser",
+          "url": "https://example.com/app"
+        }
+      }
+    },
+    "cat": "devtools.timeline",
+    "name": "ResourceSendRequest",
+    "ph": "I",
+    "pid": 100,
+    "tid": 1,
+    "ts": 1300000
+  },
+  {
+    "args": {
+      "data": {
+        "requestId": "REQ_IMG",
+        "frame": "FRAME_0",
+        "encodedDataLength": 81920,
+        "statusCode": 200,
+        "mimeType": "image/jpeg"
+      }
+    },
+    "cat": "devtools.timeline",
+    "name": "ResourceReceiveResponse",
+    "ph": "I",
+    "pid": 100,
+    "tid": 1,
+    "ts": 1800000
+  },
+  {
+    "args": {
+      "data": {
+        "requestId": "REQ_IMG",
+        "frame": "FRAME_0",
+        "encodedDataLength": 81920
+      }
+    },
+    "cat": "devtools.timeline",
+    "name": "ResourceFinish",
+    "ph": "I",
+    "pid": 100,
+    "tid": 1,
+    "ts": 2200000
+  },
+  {
+    "args": {},
+    "cat": "devtools.timeline",
+    "dur": 120000,
+    "name": "RunTask",
+    "ph": "X",
+    "pid": 100,
+    "tid": 1,
+    "ts": 1400000
+  },
+  {
+    "args": {
+      "data": {
+        "frame": "FRAME_0",
+        "functionName": "bootApp",
+        "url": "https://example.com/app.js",
+        "scriptId": "1",
+        "lineNumber": 42,
+        "columnNumber": 8
+      }
+    },
+    "cat": "devtools.timeline",
+    "dur": 70000,
+    "name": "FunctionCall",
+    "ph": "X",
+    "pid": 100,
+    "tid": 1,
+    "ts": 1405000
+  },
+  {
+    "args": {
+      "beginData": {
+        "frame": "FRAME_0",
+        "dirtyObjects": 1,
+        "partialLayout": false,
+        "totalObjects": 10
+      },
+      "endData": {
+        "layoutRoots": []
+      }
+    },
+    "cat": "devtools.timeline",
+    "dur": 20000,
+    "name": "Layout",
+    "ph": "X",
+    "pid": 100,
+    "tid": 1,
+    "ts": 1480000
+  },
+  {
+    "args": {
+      "data": {
+        "layerId": 1,
+        "frame": "FRAME_0"
+      }
+    },
+    "cat": "devtools.timeline",
+    "dur": 10000,
+    "name": "Paint",
+    "ph": "X",
+    "pid": 100,
+    "tid": 1,
+    "ts": 1505000
+  },
+  {
+    "args": {},
+    "cat": "devtools.timeline",
+    "dur": 60000,
+    "name": "RunTask",
+    "ph": "X",
+    "pid": 100,
+    "tid": 1,
+    "ts": 2400000
+  },
+  {
+    "args": {},
+    "cat": "devtools.timeline,v8",
+    "dur": 25000,
+    "name": "MajorGC",
+    "ph": "X",
+    "pid": 100,
+    "tid": 1,
+    "ts": 2410000
+  },
+  {
+    "args": {
+      "frame": "FRAME_0",
+      "data": {
+        "navigationId": "NAV_1"
+      }
+    },
+    "cat": "loading,rail,devtools.timeline",
+    "name": "firstPaint",
+    "ph": "R",
+    "pid": 100,
+    "tid": 1,
+    "ts": 2900000
+  },
+  {
+    "args": {
+      "frame": "FRAME_0",
+      "data": {
+        "navigationId": "NAV_1"
+      }
+    },
+    "cat": "loading,rail,devtools.timeline",
+    "name": "firstContentfulPaint",
+    "ph": "R",
+    "pid": 100,
+    "tid": 1,
+    "ts": 3100000
+  },
+  {
+    "args": {
+      "frame": "FRAME_0",
+      "data": {
+        "DOMNodeId": 7,
+        "imageUrl": "https://example.com/hero.jpg"
+      }
+    },
+    "cat": "loading,rail,devtools.timeline",
+    "name": "LargestImagePaint::Candidate",
+    "ph": "R",
+    "pid": 100,
+    "tid": 1,
+    "ts": 5200000
+  },
+  {
+    "args": {
+      "frame": "FRAME_0",
+      "data": {
+        "candidateIndex": 1,
+        "isOutermostMainFrame": true,
+        "isMainFrame": true,
+        "navigationId": "NAV_1",
+        "nodeId": 7,
+        "loadingAttr": "",
+        "type": "image",
+        "nodeName": "IMG"
+      }
+    },
+    "cat": "loading,rail,devtools.timeline",
+    "name": "largestContentfulPaint::Candidate",
+    "ph": "R",
+    "pid": 100,
+    "tid": 1,
+    "ts": 5200000
+  },
+  {
+    "args": {},
+    "cat": "devtools.timeline",
+    "dur": 10000,
+    "name": "RunTask",
+    "ph": "X",
+    "pid": 100,
+    "tid": 1,
+    "ts": 5190000
+  }
+]

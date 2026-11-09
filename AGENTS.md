@@ -132,7 +132,7 @@ npm run build
 
 ## 5. Coding Standards Checklist
 
-- [ ] **No `as any` bypasses**: Use explicit types, structural interfaces, or `ConstructorParameters<T>` / `Parameters<T>`.
+- [ ] **No `as any` bypasses**: Derive static types directly from `ParsedTrace` and `@paulirish/trace_engine` declarations rather than resorting to `ConstructorParameters<T>` / `Parameters<T>` cast workarounds.
 - [ ] **No loops with assertions in tests**: Write explicit, unrolled assertions per case so failures pinpoint the exact property.
 - [ ] **No defensive fallbacks that mask bugs**: Let invalid states throw clear errors rather than failing silently.
 - [ ] **No ad-hoc probe scripts**: Verify types and behavior through static definitions and `npm test`.

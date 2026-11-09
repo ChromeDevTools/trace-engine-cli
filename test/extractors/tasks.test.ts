@@ -44,7 +44,10 @@ describe('Tasks Extractor', () => {
 
     const result = extractTasks(loaded, { tree: 'bottom-up' });
     assert.equal(result.mode, 'bottom-up');
-    assert.ok(result.tasks.length > 0);
+    assert.equal(result.tasks.length, 1);
+    assert.equal(result.tasks[0].durationMs, 60);
+    assert.equal(result.tasks[0].selfTimeMs, 60);
+    assert.equal(result.tasks[0].functionName, 'RunTask');
   });
 
   test('extractTasks supports top-down tree', async () => {
@@ -53,6 +56,43 @@ describe('Tasks Extractor', () => {
 
     const result = extractTasks(loaded, { tree: 'top-down' });
     assert.equal(result.mode, 'top-down');
-    assert.ok(result.tasks.length > 0);
+    assert.equal(result.tasks.length, 1);
+    assert.equal(result.tasks[0].durationMs, 60);
+    assert.equal(result.tasks[0].selfTimeMs, 60);
+    assert.equal(result.tasks[0].functionName, 'RunTask');
+  });
+
+  test('extractTasks extracts nested tasks and JS stack frames from navigation trace', async () => {
+    const fixturePath = path.resolve(import.meta.dirname, '../fixtures/navigation-cwv-trace.json');
+    const loaded = await loadTraceFromFile(fixturePath);
+
+    const listResult = extractTasks(loaded, { minDurationMs: 50 });
+    assert.equal(listResult.mode, 'list');
+    assert.equal(listResult.tasks.length, 2);
+
+    // RunTask #1 (120ms) with child bootApp (70ms), Layout (20ms), and Paint (10ms).
+    assert.equal(listResult.tasks[0].startTimeMs, 1400);
+    assert.equal(listResult.tasks[0].durationMs, 120);
+    assert.equal(listResult.tasks[0].selfTimeMs, 20);
+    assert.equal(listResult.tasks[0].functionName, 'RunTask > bootApp');
+    assert.equal(listResult.tasks[0].url, 'https://example.com/app.js');
+    assert.equal(listResult.tasks[0].lineNumber, 42);
+    assert.equal(listResult.tasks[0].columnNumber, 8);
+
+    // RunTask #2 (60ms) with child MajorGC (25ms).
+    assert.equal(listResult.tasks[1].startTimeMs, 2400);
+    assert.equal(listResult.tasks[1].durationMs, 60);
+    assert.equal(listResult.tasks[1].selfTimeMs, 35);
+    assert.equal(listResult.tasks[1].functionName, 'RunTask > MajorGC');
+
+    const bottomUpResult = extractTasks(loaded, { tree: 'bottom-up' });
+    assert.equal(bottomUpResult.mode, 'bottom-up');
+    assert.ok(bottomUpResult.tasks.length > 0);
+    assert.equal(bottomUpResult.tasks[0].functionName, 'bootApp');
+    assert.equal(bottomUpResult.tasks[0].selfTimeMs, 70);
+    assert.equal(bottomUpResult.tasks[0].durationMs, 70);
+    assert.equal(bottomUpResult.tasks[0].url, 'https://example.com/app.js');
+    assert.equal(bottomUpResult.tasks[0].lineNumber, 42);
+    assert.equal(bottomUpResult.tasks[0].columnNumber, 8);
   });
 });

@@ -43,4 +43,35 @@ describe('Diff Extractor', () => {
     assert.equal(runTaskDiff.selfTimePctB, 100);
     assert.equal(runTaskDiff.deltaPct, 100);
   });
+
+  test('compares execution windows with stack frames on navigation trace', async () => {
+    const fixturePath = path.resolve(import.meta.dirname, '../fixtures/navigation-cwv-trace.json');
+    const loaded = await loadTraceFromFile(fixturePath);
+
+    const result = extractDiff(loaded, {
+      windowA: { startMs: 1400, endMs: 1550 },
+      windowB: { startMs: 2400, endMs: 2500 },
+      top: 5,
+    });
+
+    assert.equal(result.windowA.startMs, 1400);
+    assert.equal(result.windowA.endMs, 1550);
+    assert.equal(result.windowB.startMs, 2400);
+    assert.equal(result.windowB.endMs, 2500);
+
+    const bootAppDiff = result.entries.find((e) => e.functionName === 'bootApp');
+    assert.ok(bootAppDiff);
+    assert.equal(bootAppDiff.url, 'https://example.com/app.js');
+    assert.equal(bootAppDiff.selfTimeMsA, 70);
+    assert.equal(bootAppDiff.selfTimeMsB, 0);
+    assert.ok(bootAppDiff.deltaPct < 0);
+    assert.equal(bootAppDiff.deltaPct, -58.3);
+
+    const majorGCDiff = result.entries.find((e) => e.functionName === 'MajorGC');
+    assert.ok(majorGCDiff);
+    assert.equal(majorGCDiff.selfTimeMsA, 0);
+    assert.equal(majorGCDiff.selfTimeMsB, 25);
+    assert.ok(majorGCDiff.deltaPct > 0);
+    assert.equal(majorGCDiff.deltaPct, 41.7);
+  });
 });

@@ -12,125 +12,27 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-export interface RawThreadEntry {
-  name: string;
-  ts: number;
-  dur?: number;
-  args?: {
-    data?: Record<string, unknown>;
-  };
-}
+import type { ParsedTrace } from './loader.js';
 
-export interface RawRendererThread {
-  name: string;
-  entries: RawThreadEntry[];
-  tree?: unknown;
-  layoutEvents?: RawThreadEntry[];
-  recalcStyleEvents?: RawThreadEntry[];
-}
+type MapValue<T> = T extends Map<unknown, infer V> ? V : never;
+type RendererProcess = MapValue<NonNullable<ParsedTrace['data']['Renderer']>['processes']>;
 
-export interface RawRendererProcess {
-  isOnMainFrame?: boolean;
-  url?: string;
-  threads: Map<number, RawRendererThread>;
-}
-
-export interface RawInsightModel {
-  LCPBreakdown?: {
-    lcpMs?: number;
-    lcpTs?: number;
-    subparts?: {
-      ttfb?: { range?: number };
-      loadDelay?: { range?: number };
-      loadDuration?: { range?: number };
-      renderDelay?: { range?: number };
-    };
-    lcpRequest?: { args?: { data?: { url?: string } } };
-    lcpEvent?: { args?: { data?: { nodeName?: string } } };
-  };
-  INPBreakdown?: {
-    longestInteractionEvent?: {
-      dur: number;
-      ts?: number;
-      type?: string;
-      name?: string;
-      inputDelay?: number;
-      mainThreadHandling?: number;
-      processingDuration?: number;
-      presentationDelay?: number;
-      args?: {
-        data?: {
-          nodeName?: string;
-          beginEvent?: {
-            args?: {
-              data?: {
-                nodeName?: string;
-              };
-            };
-          };
-        };
-      };
-    };
-  };
-  CLSCulprits?: {
-    clusters?: Array<{
-      clusterCumulativeScore?: number;
-      ts?: number;
-      dur?: number;
-      clusterWindow?: {
-        min?: number;
-        range?: number;
-      };
-      events?: Array<{
-        args?: {
-          data?: {
-            weighted_score_delta?: number;
-            impacted_nodes?: Array<{
-              node_id?: number;
-              tag_name?: string;
-              selector?: string;
-              debug_name?: string;
-              old_rect?: [number, number, number, number];
-              new_rect?: [number, number, number, number];
-            }>;
-          };
-        };
-      }>;
-    }>;
-  };
-  RenderBlocking?: {
-    renderBlockingRequests?: Array<{
-      dur?: number;
-      args?: {
-        data?: {
-          url?: string;
-          encodedDataLength?: number;
-        };
-      };
-    }>;
-  };
-  ThirdParties?: {
-    entitySummaries?: Array<{
-      entity?: { name?: string };
-      transferSize?: number;
-      mainThreadTime?: number;
-    }>;
-  };
-}
+export type RendererThread = MapValue<RendererProcess['threads']>;
+export type InsightSet = MapValue<NonNullable<ParsedTrace['insights']>>;
+export type InsightModels = InsightSet['model'];
 
 /**
  * Finds the primary main renderer thread (CrRendererMain) in the trace.
  */
-// biome-ignore lint/suspicious/noExplicitAny: generic trace data
-export function getMainRendererThread(data: any): RawRendererThread | null {
-  const processes = data?.Renderer?.processes as Map<number, RawRendererProcess> | undefined;
+export function getMainRendererThread(data: ParsedTrace['data']): RendererThread | null {
+  const processes = data.Renderer?.processes;
   if (!processes) return null;
 
   // 1. Prefer main frame process
   for (const proc of processes.values()) {
     if (proc.isOnMainFrame && proc.threads) {
       for (const thread of proc.threads.values()) {
-        if (thread.name === 'CrRendererMain' && thread.entries?.length > 0) {
+        if (thread.name === 'CrRendererMain' && thread.entries.length > 0) {
           return thread;
         }
       }
@@ -141,7 +43,7 @@ export function getMainRendererThread(data: any): RawRendererThread | null {
   for (const proc of processes.values()) {
     if (proc.threads) {
       for (const thread of proc.threads.values()) {
-        if (thread.name === 'CrRendererMain' && thread.entries?.length > 0) {
+        if (thread.name === 'CrRendererMain' && thread.entries.length > 0) {
           return thread;
         }
       }
@@ -151,62 +53,40 @@ export function getMainRendererThread(data: any): RawRendererThread | null {
   return null;
 }
 
-export interface ParsedTraceWithInsights {
-  insights?: Map<
-    string,
-    {
-      id?: string;
-      model?: RawInsightModel;
-      navigation?: { args?: { data?: { navigationId?: string } } };
-    }
-  >;
-}
-
 export interface InsightEntryResult {
   insightSetId: string;
-  model: RawInsightModel;
+  model: InsightModels;
 }
 
 /**
  * Finds an insight set entry matching a navigation ID or key.
  */
 export function findInsightEntry(
-  parsedTrace: ParsedTraceWithInsights,
+  parsedTrace: ParsedTrace,
   navigationId?: string,
 ): InsightEntryResult | null {
-  if (!parsedTrace?.insights || parsedTrace.insights.size === 0) {
+  if (!parsedTrace.insights || parsedTrace.insights.size === 0) {
     return null;
   }
 
   if (navigationId) {
     const directMatch = parsedTrace.insights.get(navigationId);
     if (directMatch) {
-      const model = ((directMatch as { model?: RawInsightModel }).model ||
-        directMatch) as RawInsightModel;
-      return { insightSetId: navigationId, model };
+      return { insightSetId: navigationId, model: directMatch.model };
     }
-    for (const [key, val] of parsedTrace.insights.entries()) {
-      const rawVal = val as {
-        id?: string;
-        model?: RawInsightModel;
-        navigation?: { args?: { data?: { navigationId?: string } } };
-      };
-      if (
-        key === navigationId ||
-        rawVal?.id === navigationId ||
-        rawVal?.navigation?.args?.data?.navigationId === navigationId
-      ) {
-        const model = (rawVal?.model || val) as RawInsightModel;
-        return { insightSetId: key || rawVal?.id || navigationId, model };
+    for (const [key, insightSet] of parsedTrace.insights.entries()) {
+      const navArgs = insightSet.navigation?.args;
+      const navEventId =
+        navArgs && 'data' in navArgs && navArgs.data ? navArgs.data.navigationId : undefined;
+      if (key === navigationId || insightSet.id === navigationId || navEventId === navigationId) {
+        return { insightSetId: key || insightSet.id || navigationId, model: insightSet.model };
       }
     }
     return null;
   }
 
-  for (const [key, val] of parsedTrace.insights.entries()) {
-    const rawVal = val as { id?: string; model?: RawInsightModel };
-    const model = (rawVal?.model || val) as RawInsightModel;
-    return { insightSetId: key || rawVal?.id || '', model };
+  for (const [key, insightSet] of parsedTrace.insights.entries()) {
+    return { insightSetId: key || insightSet.id || '', model: insightSet.model };
   }
   return null;
 }
@@ -215,9 +95,9 @@ export function findInsightEntry(
  * Retrieves the insight model set from the parsed trace, optionally filtered by navigation ID.
  */
 export function getPrimaryInsightSet(
-  parsedTrace: ParsedTraceWithInsights,
+  parsedTrace: ParsedTrace,
   navigationId?: string,
-): RawInsightModel | null {
+): InsightModels | null {
   return findInsightEntry(parsedTrace, navigationId)?.model ?? null;
 }
 
