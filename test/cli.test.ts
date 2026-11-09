@@ -312,3 +312,200 @@ describe('CLI Dispatcher', () => {
     assert.ok(output.includes('https://example.com/styles.css'));
   });
 });
+
+describe('CLI option validation', () => {
+  const tracePath = path.resolve(import.meta.dirname, 'fixtures/basic-trace.json');
+  const navigationTracePath = path.resolve(
+    import.meta.dirname,
+    'fixtures/navigation-cwv-trace.json',
+  );
+  const fixturesDir = path.resolve(import.meta.dirname, 'fixtures');
+
+  test('rejects --time-range on insights', async () => {
+    await assert.rejects(
+      captureCliOutput(['node', 'trace-engine-cli', 'insights', tracePath, '--time-range', '0,10']),
+      /time-range/,
+    );
+  });
+
+  test('rejects --time-range on navigations', async () => {
+    await assert.rejects(
+      captureCliOutput([
+        'node',
+        'trace-engine-cli',
+        'navigations',
+        tracePath,
+        '--time-range',
+        '0,10',
+      ]),
+      /time-range/,
+    );
+  });
+
+  test('rejects --time-range on diff', async () => {
+    await assert.rejects(
+      captureCliOutput([
+        'node',
+        'trace-engine-cli',
+        'diff',
+        tracePath,
+        '--window-a',
+        '0,50',
+        '--window-b',
+        '50,100',
+        '--time-range',
+        '0,10',
+      ]),
+      /time-range/,
+    );
+  });
+
+  test('rejects --time-range on scan', async () => {
+    await assert.rejects(
+      captureCliOutput([
+        'node',
+        'trace-engine-cli',
+        'scan',
+        fixturesDir,
+        '--name',
+        'RunTask',
+        '--time-range',
+        '0,10',
+      ]),
+      /time-range/,
+    );
+  });
+
+  test('rejects --absolute-timestamps on insights', async () => {
+    await assert.rejects(
+      captureCliOutput([
+        'node',
+        'trace-engine-cli',
+        'insights',
+        tracePath,
+        '--absolute-timestamps',
+      ]),
+      /absolute-timestamps/,
+    );
+  });
+
+  test('keeps --absolute-timestamps on diff', async () => {
+    const output = await captureCliOutput([
+      'node',
+      'trace-engine-cli',
+      'diff',
+      tracePath,
+      '--window-a',
+      '1000,1050',
+      '--window-b',
+      '1050,1100',
+      '--absolute-timestamps',
+    ]);
+    assert.ok(output.includes('windowA:'));
+  });
+
+  test('rejects --top 0 on tasks', async () => {
+    await assert.rejects(
+      captureCliOutput(['node', 'trace-engine-cli', 'tasks', tracePath, '--top', '0']),
+      /--top must be a positive integer\. Received: 0/,
+    );
+  });
+
+  test('rejects negative --top on tasks', async () => {
+    await assert.rejects(
+      captureCliOutput(['node', 'trace-engine-cli', 'tasks', tracePath, '--top', '-5']),
+      /--top must be a positive integer\. Received: -5/,
+    );
+  });
+
+  test('rejects fractional --top on tasks', async () => {
+    await assert.rejects(
+      captureCliOutput(['node', 'trace-engine-cli', 'tasks', tracePath, '--top', '1.5']),
+      /--top must be a positive integer\. Received: 1\.5/,
+    );
+  });
+
+  test('rejects non-numeric --top on tasks', async () => {
+    await assert.rejects(
+      captureCliOutput(['node', 'trace-engine-cli', 'tasks', tracePath, '--top', 'abc']),
+      /--top must be a positive integer\. Received: abc/,
+    );
+  });
+
+  test('rejects --top 0 on profile', async () => {
+    await assert.rejects(
+      captureCliOutput(['node', 'trace-engine-cli', 'profile', tracePath, '--top', '0']),
+      /--top must be a positive integer\. Received: 0/,
+    );
+  });
+
+  test('rejects negative --limit alias on events', async () => {
+    await assert.rejects(
+      captureCliOutput(['node', 'trace-engine-cli', 'events', tracePath, '--limit', '-1']),
+      /--top must be a positive integer\. Received: -1/,
+    );
+  });
+
+  test('rejects --slowest 0 on network', async () => {
+    await assert.rejects(
+      captureCliOutput([
+        'node',
+        'trace-engine-cli',
+        'network',
+        navigationTracePath,
+        '--slowest',
+        '0',
+      ]),
+      /--slowest must be a positive integer\. Received: 0/,
+    );
+  });
+
+  test('rejects --top 0 on scan', async () => {
+    await assert.rejects(
+      captureCliOutput([
+        'node',
+        'trace-engine-cli',
+        'scan',
+        fixturesDir,
+        '--name',
+        'RunTask',
+        '--top',
+        '0',
+      ]),
+      /--top must be a positive integer\. Received: 0/,
+    );
+  });
+
+  test('rejects negative --min-duration on tasks', async () => {
+    await assert.rejects(
+      captureCliOutput(['node', 'trace-engine-cli', 'tasks', tracePath, '--min-duration', '-1']),
+      /--min-duration must be a number >= 0\. Received: -1/,
+    );
+  });
+
+  test('accepts --min-duration 0 on tasks', async () => {
+    const output = await captureCliOutput([
+      'node',
+      'trace-engine-cli',
+      'tasks',
+      tracePath,
+      '--min-duration',
+      '0',
+    ]);
+    assert.ok(output.includes('mode: list'));
+  });
+
+  test('rejects --bucket 0 on profile', async () => {
+    await assert.rejects(
+      captureCliOutput(['node', 'trace-engine-cli', 'profile', tracePath, '--bucket', '0']),
+      /--bucket must be a duration > 0\. Received: 0/,
+    );
+  });
+
+  test('rejects negative --bucket on profile', async () => {
+    await assert.rejects(
+      captureCliOutput(['node', 'trace-engine-cli', 'profile', tracePath, '--bucket', '-5ms']),
+      /--bucket must be a duration > 0\. Received: -5ms/,
+    );
+  });
+});

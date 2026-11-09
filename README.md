@@ -250,10 +250,17 @@ trace-engine-cli --help
 | Option | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
 | `-f, --format` | `'toon' \| 'md'` | `'toon'` | Output serialization format (`toon` or `md`) |
-| `--time-range` | `string` | — | Filter window relative to trace start (e.g. `"3500,4200"`, `"3.5s,4.2s"`, `"100ms-500ms"`) |
-| `--absolute-timestamps` | `boolean` | `false` | Treat time ranges as raw absolute trace timestamps rather than relative to trace start |
 | `--trace-engine`| `string` | — | Path to a custom DevTools trace engine bundle |
 | `--help` | `boolean` | — | Show help and synopsis |
+
+### Time Range Options
+
+These options apply to `overview`, `tasks`, `find`, `profile`, `scheduling`, `network`, `interactions`, `shifts` and `events`. `diff` accepts `--absolute-timestamps` for its `--window-a` and `--window-b` values. Other commands reject both options.
+
+| Option | Type | Default | Description |
+| :--- | :--- | :--- | :--- |
+| `--time-range` | `string` | — | Filter window relative to trace start (e.g. `"3500,4200"`, `"3.5s,4.2s"`, `"100ms-500ms"`) |
+| `--absolute-timestamps` | `boolean` | `false` | Treat time ranges as raw absolute trace timestamps rather than relative to trace start |
 
 ---
 

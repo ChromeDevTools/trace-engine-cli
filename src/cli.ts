@@ -27,9 +27,14 @@ import { scanTraces } from './engine/extractors/scan.js';
 import { extractScheduling } from './engine/extractors/scheduling.js';
 import { extractShifts } from './engine/extractors/shifts.js';
 import { extractTasks } from './engine/extractors/tasks.js';
-import { loadTraceFromFile } from './engine/loader.js';
+import { type LoadedTrace, loadTraceFromFile } from './engine/loader.js';
 import { formatResult } from './formatters/index.js';
-import { parseTimeRange, parseTimeValue, resolveTimeRange } from './utils/filter.js';
+import {
+  parseTimeRange,
+  parseTimeValue,
+  resolveTimeRange,
+  type TimeRange,
+} from './utils/filter.js';
 
 /**
  * Splits a comma-separated argument into trimmed, non-empty tokens.
@@ -43,6 +48,80 @@ function parseCommaList(val?: unknown): string[] | undefined {
     .map((s) => s.trim())
     .filter(Boolean);
   return items.length > 0 ? items : undefined;
+}
+
+/**
+ * Builds a yargs coerce function that accepts only integers >= 1.
+ */
+function positiveInteger(flag: string): (value: unknown) => number {
+  return (value) => {
+    const num = typeof value === 'number' ? value : Number(value);
+    if (!Number.isInteger(num) || num < 1) {
+      throw new Error(`--${flag} must be a positive integer. Received: ${value}`);
+    }
+    return num;
+  };
+}
+
+/**
+ * Builds a yargs coerce function that accepts only finite numbers >= 0.
+ */
+function nonNegativeNumber(flag: string): (value: unknown) => number {
+  return (value) => {
+    const num = typeof value === 'number' ? value : Number(value);
+    if (!Number.isFinite(num) || num < 0) {
+      throw new Error(`--${flag} must be a number >= 0. Received: ${value}`);
+    }
+    return num;
+  };
+}
+
+/**
+ * Builds a yargs coerce function that parses a duration with optional unit and accepts only values > 0.
+ */
+function positiveDuration(flag: string): (value: unknown) => number {
+  return (value) => {
+    const ms = parseTimeValue(String(value));
+    if (ms <= 0) {
+      throw new Error(`--${flag} must be a duration > 0. Received: ${value}`);
+    }
+    return ms;
+  };
+}
+
+// Declared per command, so commands that do not filter by time reject these options.
+const TIME_RANGE_OPTION = {
+  type: 'string',
+  describe:
+    'Time window (relative to trace start by default, e.g. "3500,4200", "3.5s,4.2s", "100ms-500ms")',
+} as const;
+
+const ABSOLUTE_TIMESTAMPS_OPTION = {
+  type: 'boolean',
+  default: false,
+  describe:
+    'Treat time ranges as raw absolute trace timestamps rather than relative to trace start (default: false)',
+} as const;
+
+type CliArgs = Record<string, unknown>;
+
+function loadTrace(args: CliArgs): Promise<LoadedTrace> {
+  return loadTraceFromFile(args.file as string, args.traceEngine as string | undefined);
+}
+
+/**
+ * Loads the trace and resolves `--time-range` against its bounds.
+ */
+async function loadTraceWithTimeRange(
+  args: CliArgs,
+): Promise<{ loaded: LoadedTrace; timeRange: TimeRange | undefined }> {
+  const loaded = await loadTrace(args);
+  const timeRange = resolveTimeRange(
+    parseTimeRange(args.timeRange as string | undefined),
+    loaded.parsedTrace.data.Meta.traceBounds,
+    args.absoluteTimestamps as boolean,
+  );
+  return { loaded, timeRange };
 }
 
 export async function runCli(argv: string[]): Promise<void> {
@@ -60,37 +139,20 @@ export async function runCli(argv: string[]): Promise<void> {
       type: 'string',
       describe: 'Path to custom trace engine bundle',
     })
-    .option('time-range', {
-      type: 'string',
-      describe:
-        'Time window (relative to trace start by default, e.g. "3500,4200", "3.5s,4.2s", "100ms-500ms")',
-    })
-    .option('absolute-timestamps', {
-      type: 'boolean',
-      default: false,
-      describe:
-        'Treat time ranges as raw absolute trace timestamps rather than relative to trace start (default: false)',
-    })
     .command(
       ['overview <file>', '$0 <file>'],
       'High-level trace metadata, Core Web Vitals, and main thread category breakdown (default command)',
       (y) =>
-        y.positional('file', {
-          describe: 'Path to trace file (.json or .json.gz)',
-          type: 'string',
-          demandOption: true,
-        }),
+        y
+          .positional('file', {
+            describe: 'Path to trace file (.json or .json.gz)',
+            type: 'string',
+            demandOption: true,
+          })
+          .option('time-range', TIME_RANGE_OPTION)
+          .option('absolute-timestamps', ABSOLUTE_TIMESTAMPS_OPTION),
       async (args) => {
-        const loaded = await loadTraceFromFile(
-          args.file as string,
-          args.traceEngine as string | undefined,
-        );
-        const rawRange = parseTimeRange(args.timeRange as string | undefined);
-        const timeRange = resolveTimeRange(
-          rawRange,
-          loaded.parsedTrace.data.Meta.traceBounds,
-          args.absoluteTimestamps as boolean,
-        );
+        const { loaded, timeRange } = await loadTraceWithTimeRange(args);
         const result = extractOverview(loaded, { timeRange });
         const isDefaultCmd = !args._.includes('overview');
         console.log(
@@ -123,10 +185,7 @@ export async function runCli(argv: string[]): Promise<void> {
             describe: 'Navigation ID to inspect insights for',
           }),
       async (args) => {
-        const loaded = await loadTraceFromFile(
-          args.file as string,
-          args.traceEngine as string | undefined,
-        );
+        const loaded = await loadTrace(args);
         const result = extractInsights(loaded, {
           category: args.category as
             | 'lcp'
@@ -156,7 +215,8 @@ export async function runCli(argv: string[]): Promise<void> {
             demandOption: true,
           })
           .option('min-duration', {
-            type: 'number',
+            requiresArg: true,
+            coerce: nonNegativeNumber('min-duration'),
             default: 50,
             describe: 'Minimum task duration threshold in milliseconds (default: 50ms)',
           })
@@ -168,21 +228,15 @@ export async function runCli(argv: string[]): Promise<void> {
           })
           .option('top', {
             alias: ['limit'],
-            type: 'number',
+            requiresArg: true,
+            coerce: positiveInteger('top'),
             default: 20,
             describe: 'Limit output to top N tasks (default: 20)',
-          }),
+          })
+          .option('time-range', TIME_RANGE_OPTION)
+          .option('absolute-timestamps', ABSOLUTE_TIMESTAMPS_OPTION),
       async (args) => {
-        const loaded = await loadTraceFromFile(
-          args.file as string,
-          args.traceEngine as string | undefined,
-        );
-        const rawRange = parseTimeRange(args.timeRange as string | undefined);
-        const timeRange = resolveTimeRange(
-          rawRange,
-          loaded.parsedTrace.data.Meta.traceBounds,
-          args.absoluteTimestamps as boolean,
-        );
+        const { loaded, timeRange } = await loadTraceWithTimeRange(args);
         const result = extractTasks(loaded, {
           minDurationMs: args.minDuration as number,
           tree: args.tree as 'bottom-up' | 'top-down' | undefined,
@@ -215,21 +269,15 @@ export async function runCli(argv: string[]): Promise<void> {
           })
           .option('top', {
             alias: ['limit'],
-            type: 'number',
+            requiresArg: true,
+            coerce: positiveInteger('top'),
             default: 50,
             describe: 'Maximum number of invocation entries to list (default: 50)',
-          }),
+          })
+          .option('time-range', TIME_RANGE_OPTION)
+          .option('absolute-timestamps', ABSOLUTE_TIMESTAMPS_OPTION),
       async (args) => {
-        const loaded = await loadTraceFromFile(
-          args.file as string,
-          args.traceEngine as string | undefined,
-        );
-        const rawRange = parseTimeRange(args.timeRange as string | undefined);
-        const timeRange = resolveTimeRange(
-          rawRange,
-          loaded.parsedTrace.data.Meta.traceBounds,
-          args.absoluteTimestamps as boolean,
-        );
+        const { loaded, timeRange } = await loadTraceWithTimeRange(args);
         const result = extractFind(loaded, {
           functionName: args.function as string,
           timeRange,
@@ -255,30 +303,25 @@ export async function runCli(argv: string[]): Promise<void> {
           })
           .option('bucket', {
             type: 'string',
+            requiresArg: true,
+            coerce: positiveDuration('bucket'),
             describe:
               'Bucket slice duration with optional unit (e.g. "50ms", "0.1s", "50", default: dynamic ~50ms)',
           })
           .option('top', {
             alias: ['limit'],
-            type: 'number',
+            requiresArg: true,
+            coerce: positiveInteger('top'),
             default: 3,
             describe: 'Top N functions to include per time bucket (default: 3)',
-          }),
+          })
+          .option('time-range', TIME_RANGE_OPTION)
+          .option('absolute-timestamps', ABSOLUTE_TIMESTAMPS_OPTION),
       async (args) => {
-        const loaded = await loadTraceFromFile(
-          args.file as string,
-          args.traceEngine as string | undefined,
-        );
-        const rawRange = parseTimeRange(args.timeRange as string | undefined);
-        const timeRange = resolveTimeRange(
-          rawRange,
-          loaded.parsedTrace.data.Meta.traceBounds,
-          args.absoluteTimestamps as boolean,
-        );
-        const bucketMs = args.bucket ? parseTimeValue(String(args.bucket)) : undefined;
+        const { loaded, timeRange } = await loadTraceWithTimeRange(args);
         const result = extractProfile(loaded, {
           timeRange,
-          bucketMs,
+          bucketMs: args.bucket,
           top: args.top as number,
         });
         console.log(
@@ -313,15 +356,14 @@ export async function runCli(argv: string[]): Promise<void> {
           })
           .option('top', {
             alias: ['limit'],
-            type: 'number',
+            requiresArg: true,
+            coerce: positiveInteger('top'),
             default: 20,
             describe: 'Maximum differential entries to return (default: 20)',
-          }),
+          })
+          .option('absolute-timestamps', ABSOLUTE_TIMESTAMPS_OPTION),
       async (args) => {
-        const loaded = await loadTraceFromFile(
-          args.file as string,
-          args.traceEngine as string | undefined,
-        );
+        const loaded = await loadTrace(args);
         const rawRangeA = parseTimeRange(args['window-a'] as string);
         const rawRangeB = parseTimeRange(args['window-b'] as string);
         const bounds = loaded.parsedTrace.data.Meta.traceBounds;
@@ -351,22 +393,16 @@ export async function runCli(argv: string[]): Promise<void> {
       'scheduling <file>',
       'Async task and animation frame scheduling, cancellation, and churn metrics',
       (y) =>
-        y.positional('file', {
-          describe: 'Path to trace file (.json or .json.gz)',
-          type: 'string',
-          demandOption: true,
-        }),
+        y
+          .positional('file', {
+            describe: 'Path to trace file (.json or .json.gz)',
+            type: 'string',
+            demandOption: true,
+          })
+          .option('time-range', TIME_RANGE_OPTION)
+          .option('absolute-timestamps', ABSOLUTE_TIMESTAMPS_OPTION),
       async (args) => {
-        const loaded = await loadTraceFromFile(
-          args.file as string,
-          args.traceEngine as string | undefined,
-        );
-        const rawRange = parseTimeRange(args.timeRange as string | undefined);
-        const timeRange = resolveTimeRange(
-          rawRange,
-          loaded.parsedTrace.data.Meta.traceBounds,
-          args.absoluteTimestamps as boolean,
-        );
+        const { loaded, timeRange } = await loadTraceWithTimeRange(args);
         const result = extractScheduling(loaded, { timeRange });
         console.log(
           formatResult(result, {
@@ -393,7 +429,8 @@ export async function runCli(argv: string[]): Promise<void> {
           })
           .option('slowest', {
             alias: ['top', 'limit'],
-            type: 'number',
+            requiresArg: true,
+            coerce: positiveInteger('slowest'),
             default: 20,
             describe: 'Limit output to N slowest requests (default: 20)',
           })
@@ -401,18 +438,11 @@ export async function runCli(argv: string[]): Promise<void> {
             type: 'string',
             describe:
               'Trace the upstream request initiator chain matching a requestId or URL substring',
-          }),
+          })
+          .option('time-range', TIME_RANGE_OPTION)
+          .option('absolute-timestamps', ABSOLUTE_TIMESTAMPS_OPTION),
       async (args) => {
-        const loaded = await loadTraceFromFile(
-          args.file as string,
-          args.traceEngine as string | undefined,
-        );
-        const rawRange = parseTimeRange(args.timeRange as string | undefined);
-        const timeRange = resolveTimeRange(
-          rawRange,
-          loaded.parsedTrace.data.Meta.traceBounds,
-          args.absoluteTimestamps as boolean,
-        );
+        const { loaded, timeRange } = await loadTraceWithTimeRange(args);
         const result = extractNetwork(loaded, {
           renderBlocking: args.renderBlocking as boolean,
           slowest: args.slowest as number,
@@ -431,22 +461,16 @@ export async function runCli(argv: string[]): Promise<void> {
       'interactions <file>',
       'User interaction latencies and target DOM elements',
       (y) =>
-        y.positional('file', {
-          describe: 'Path to trace file (.json or .json.gz)',
-          type: 'string',
-          demandOption: true,
-        }),
+        y
+          .positional('file', {
+            describe: 'Path to trace file (.json or .json.gz)',
+            type: 'string',
+            demandOption: true,
+          })
+          .option('time-range', TIME_RANGE_OPTION)
+          .option('absolute-timestamps', ABSOLUTE_TIMESTAMPS_OPTION),
       async (args) => {
-        const loaded = await loadTraceFromFile(
-          args.file as string,
-          args.traceEngine as string | undefined,
-        );
-        const rawRange = parseTimeRange(args.timeRange as string | undefined);
-        const timeRange = resolveTimeRange(
-          rawRange,
-          loaded.parsedTrace.data.Meta.traceBounds,
-          args.absoluteTimestamps as boolean,
-        );
+        const { loaded, timeRange } = await loadTraceWithTimeRange(args);
         const result = extractInteractions(loaded, { timeRange });
         console.log(
           formatResult(result, {
@@ -470,18 +494,11 @@ export async function runCli(argv: string[]): Promise<void> {
             type: 'boolean',
             default: false,
             describe: 'Include individual shift events within each cluster',
-          }),
+          })
+          .option('time-range', TIME_RANGE_OPTION)
+          .option('absolute-timestamps', ABSOLUTE_TIMESTAMPS_OPTION),
       async (args) => {
-        const loaded = await loadTraceFromFile(
-          args.file as string,
-          args.traceEngine as string | undefined,
-        );
-        const rawRange = parseTimeRange(args.timeRange as string | undefined);
-        const timeRange = resolveTimeRange(
-          rawRange,
-          loaded.parsedTrace.data.Meta.traceBounds,
-          args.absoluteTimestamps as boolean,
-        );
+        const { loaded, timeRange } = await loadTraceWithTimeRange(args);
         const result = extractShifts(loaded, {
           timeRange,
           includeEvents: args.events as boolean,
@@ -527,21 +544,15 @@ export async function runCli(argv: string[]): Promise<void> {
           })
           .option('top', {
             alias: ['limit'],
-            type: 'number',
+            requiresArg: true,
+            coerce: positiveInteger('top'),
             default: 50,
             describe: 'Maximum number of matching events to return (default: 50)',
-          }),
+          })
+          .option('time-range', TIME_RANGE_OPTION)
+          .option('absolute-timestamps', ABSOLUTE_TIMESTAMPS_OPTION),
       async (args) => {
-        const loaded = await loadTraceFromFile(
-          args.file as string,
-          args.traceEngine as string | undefined,
-        );
-        const rawRange = parseTimeRange(args.timeRange as string | undefined);
-        const timeRange = resolveTimeRange(
-          rawRange,
-          loaded.parsedTrace.data.Meta.traceBounds,
-          args.absoluteTimestamps as boolean,
-        );
+        const { loaded, timeRange } = await loadTraceWithTimeRange(args);
         const names = parseCommaList(args.name);
         const fields = parseCommaList(args.fields);
         const result = extractEvents(loaded, {
@@ -570,10 +581,7 @@ export async function runCli(argv: string[]): Promise<void> {
           demandOption: true,
         }),
       async (args) => {
-        const loaded = await loadTraceFromFile(
-          args.file as string,
-          args.traceEngine as string | undefined,
-        );
+        const loaded = await loadTrace(args);
         const result = extractNavigations(loaded);
         console.log(
           formatResult(result, {
@@ -621,7 +629,8 @@ export async function runCli(argv: string[]): Promise<void> {
           })
           .option('top', {
             alias: ['limit'],
-            type: 'number',
+            requiresArg: true,
+            coerce: positiveInteger('top'),
             default: 50,
             describe: 'Maximum number of matched files to return (default: 50)',
           }),
