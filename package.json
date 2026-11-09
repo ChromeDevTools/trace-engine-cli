@@ -3,6 +3,9 @@
   "version": "0.2.0",
   "description": "CLI tool for inspecting Chromium performance traces on top of DevTools Trace Engine",
   "type": "module",
+  "engines": {
+    "node": ">=22.12.0"
+  },
   "bin": {
     "trace-engine-cli": "./dist/bin/trace-engine-cli.js"
   },
