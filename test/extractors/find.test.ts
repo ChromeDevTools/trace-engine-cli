@@ -68,4 +68,28 @@ describe('Find Extractor', () => {
     });
     assert.equal(outside.totalCalls, 0);
   });
+
+  test('finds function call with stack frame metadata on navigation trace', async () => {
+    const fixturePath = path.resolve(import.meta.dirname, '../fixtures/navigation-cwv-trace.json');
+    const loaded = await loadTraceFromFile(fixturePath);
+
+    const result = extractFind(loaded, {
+      functionName: 'bootApp',
+    });
+
+    assert.equal(result.functionQuery, 'bootApp');
+    assert.equal(result.totalCalls, 1);
+    assert.equal(result.totalDurationMs, 70);
+    assert.equal(result.avgDurationMs, 70);
+    assert.equal(result.firstCallMs, 1405);
+    assert.equal(result.lastCallMs, 1405);
+    assert.equal(result.calls.length, 1);
+    assert.equal(result.calls[0].timestampMs, 1405);
+    assert.equal(result.calls[0].durationMs, 70);
+    assert.equal(result.calls[0].url, 'https://example.com/app.js');
+    assert.equal(result.calls[0].lineNumber, 42);
+    assert.equal(result.calls[0].columnNumber, 8);
+    assert.ok(result.intervals);
+    assert.ok(result.intervals.length > 0);
+  });
 });

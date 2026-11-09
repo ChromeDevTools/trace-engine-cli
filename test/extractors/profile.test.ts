@@ -34,11 +34,11 @@ describe('Profile Extractor', () => {
     assert.equal(result.bucketSizeMs, 100);
     assert.equal(result.buckets.length, 3);
 
-    // Bucket 1: 1000 - 1100ms
+    // Bucket 1: 1000 - 1100ms.
     assert.equal(result.buckets[0].startMs, 1000);
     assert.equal(result.buckets[0].endMs, 1100);
 
-    // Bucket 2: 1100 - 1200ms (RunTask runs here at 1100ms for 60ms)
+    // Bucket 2: 1100 - 1200ms (RunTask runs here at 1100ms for 60ms).
     assert.equal(result.buckets[1].startMs, 1100);
     assert.equal(result.buckets[1].endMs, 1200);
     assert.ok(result.buckets[1].totalActiveMs > 0);
@@ -46,5 +46,38 @@ describe('Profile Extractor', () => {
     assert.equal(result.buckets[1].topFunctions[0].name, 'RunTask');
     assert.equal(result.buckets[1].topFunctions[0].selfTimeMs, 60);
     assert.equal(result.buckets[1].topFunctions[0].selfTimePct, 100);
+  });
+
+  test('resolves stack frame functions and browser tasks across bucket on navigation trace', async () => {
+    const fixturePath = path.resolve(import.meta.dirname, '../fixtures/navigation-cwv-trace.json');
+    const loaded = await loadTraceFromFile(fixturePath);
+
+    const result = extractProfile(loaded, {
+      timeRange: { startMs: 1400, endMs: 1600 },
+      bucketMs: 200,
+      top: 5,
+    });
+
+    assert.equal(result.timeRange.startMs, 1400);
+    assert.equal(result.timeRange.endMs, 1600);
+    assert.equal(result.bucketSizeMs, 200);
+    assert.equal(result.buckets.length, 1);
+
+    const bucket = result.buckets[0];
+    assert.equal(bucket.startMs, 1400);
+    assert.equal(bucket.endMs, 1600);
+    assert.equal(bucket.totalActiveMs, 120);
+    assert.equal(bucket.topFunctions.length, 4);
+
+    // bootApp is the #1 function by self time.
+    assert.equal(bucket.topFunctions[0].name, 'bootApp');
+    assert.equal(bucket.topFunctions[0].selfTimeMs, 70);
+    assert.equal(bucket.topFunctions[0].selfTimePct, 58.3);
+
+    // Remaining functions include Layout, Paint, and RunTask.
+    const functionNames = bucket.topFunctions.map((fn) => fn.name);
+    assert.ok(functionNames.includes('Layout'));
+    assert.ok(functionNames.includes('Paint'));
+    assert.ok(functionNames.includes('RunTask'));
   });
 });

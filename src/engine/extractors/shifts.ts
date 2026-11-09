@@ -28,39 +28,19 @@ export interface ExtractShiftsOptions {
   includeEvents?: boolean;
 }
 
-interface RawImpactedNode {
-  node_id?: number;
+export type SyntheticLayoutShiftCluster = NonNullable<
+  LoadedTrace['parsedTrace']['data']['LayoutShifts']
+>['clusters'][number];
+export type SyntheticLayoutShift = SyntheticLayoutShiftCluster['events'][number];
+export type TraceImpactedNode = NonNullable<
+  NonNullable<SyntheticLayoutShift['args']['data']>['impacted_nodes']
+>[number];
+
+/** Extends TraceImpactedNode with optional tag_name and selector fields used in synthetic trace payloads. */
+export type TraceImpactedNodeWithSelector = TraceImpactedNode & {
   tag_name?: string;
   selector?: string;
-  debug_name?: string;
-  old_rect?: [number, number, number, number];
-  new_rect?: [number, number, number, number];
-}
-
-interface RawShiftEvent {
-  ts?: number;
-  args?: {
-    data?: {
-      score?: number;
-      weighted_score_delta?: number;
-      had_recent_input?: boolean;
-      navigationId?: string;
-      impacted_nodes?: RawImpactedNode[];
-    };
-  };
-}
-
-interface RawLayoutShiftCluster {
-  clusterCumulativeScore?: number;
-  ts?: number;
-  dur?: number;
-  navigationId?: string;
-  clusterWindow?: {
-    min?: number;
-    range?: number;
-  };
-  events?: RawShiftEvent[];
-}
+};
 
 /**
  * Extracts layout shift clusters, scores, and culprit elements.
@@ -71,7 +51,7 @@ export function extractShifts(
 ): ShiftsResult {
   const { parsedTrace } = loadedTrace;
   const timeRange = options?.timeRange;
-  const rawClusters = (parsedTrace.data.LayoutShifts?.clusters || []) as RawLayoutShiftCluster[];
+  const rawClusters = parsedTrace.data.LayoutShifts?.clusters || [];
 
   const clusters: ShiftClusterItem[] = [];
 
@@ -89,8 +69,8 @@ export function extractShifts(
 
     if (cluster.events) {
       for (const ev of cluster.events) {
-        const scoreDelta = ev.args?.data?.weighted_score_delta;
-        const nodes = ev.args?.data?.impacted_nodes || [];
+        const scoreDelta = ev.args.data?.weighted_score_delta;
+        const nodes = (ev.args.data?.impacted_nodes || []) as TraceImpactedNodeWithSelector[];
         for (const n of nodes) {
           const key =
             n.selector ||
@@ -112,11 +92,11 @@ export function extractShifts(
         }
 
         if (options?.includeEvents) {
-          const evTsMs = microToMilli(ev.ts ?? 0);
-          const evScore = ev.args?.data?.score ?? ev.args?.data?.weighted_score_delta ?? 0;
-          const evWeighted = ev.args?.data?.weighted_score_delta;
-          const evNavId = ev.args?.data?.navigationId;
-          const hadRecentInput = ev.args?.data?.had_recent_input;
+          const evTsMs = microToMilli(ev.ts);
+          const evScore = ev.args.data?.score ?? ev.args.data?.weighted_score_delta ?? 0;
+          const evWeighted = ev.args.data?.weighted_score_delta;
+          const evNavId = ev.args.data?.navigationId;
+          const hadRecentInput = ev.args.data?.had_recent_input;
           const impactedNodes = nodes.map((node) => ({
             nodeId: node.node_id,
             tagName: node.tag_name,
@@ -140,7 +120,7 @@ export function extractShifts(
 
     const clusterNavId =
       cluster.navigationId ||
-      (cluster.events ? cluster.events[0]?.args?.data?.navigationId : undefined);
+      (cluster.events ? cluster.events[0]?.args.data?.navigationId : undefined);
 
     clusters.push({
       timestampMs: round(startMs),

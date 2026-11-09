@@ -59,8 +59,9 @@ export function extractInsights(
   if (shouldInclude('lcp') && insightSet?.LCPBreakdown) {
     const l = insightSet.LCPBreakdown;
     const subparts = l.subparts;
+    // Despite the 'Ts' suffix, the trace engine emits lcpTs in milliseconds.
     const lcpInsight: LcpBreakdownInsight = {
-      totalLcpMs: round(l.lcpMs ?? (l.lcpTs ? microToMilli(l.lcpTs) : 0)),
+      totalLcpMs: round(l.lcpMs ?? l.lcpTs ?? 0),
       ttfbMs: subparts?.ttfb?.range ? round(microToMilli(subparts.ttfb.range)) : 0,
       loadDelayMs: subparts?.loadDelay?.range ? round(microToMilli(subparts.loadDelay.range)) : 0,
       loadDurationMs: subparts?.loadDuration?.range
@@ -95,15 +96,20 @@ export function extractInsights(
         : undefined);
 
     if (longestEvent) {
+      // Synthetic interaction events store their target node name inside the begin event payload.
+      const beginData = longestEvent.args?.data?.beginEvent?.args?.data;
+      const target =
+        beginData && 'nodeName' in beginData && typeof beginData.nodeName === 'string'
+          ? beginData.nodeName
+          : undefined;
+
       const inpInsight: InpBreakdownInsight = {
         totalDurationMs: round(microToMilli(longestEvent.dur)),
         inputDelayMs: round(microToMilli(longestEvent.inputDelay ?? 0)),
-        processingDurationMs: round(
-          microToMilli(longestEvent.mainThreadHandling ?? longestEvent.processingDuration ?? 0),
-        ),
+        processingDurationMs: round(microToMilli(longestEvent.mainThreadHandling ?? 0)),
         presentationDelayMs: round(microToMilli(longestEvent.presentationDelay ?? 0)),
-        eventType: longestEvent.type || longestEvent.name || 'unknown',
-        target: longestEvent.args?.data?.nodeName,
+        eventType: longestEvent.type || 'unknown',
+        target,
       };
       result.inpBreakdown = inpInsight;
 

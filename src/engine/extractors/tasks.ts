@@ -25,11 +25,6 @@ export interface ExtractTasksOptions {
   timeRange?: TimeRange;
 }
 
-interface RawTreeNode {
-  entry: { name: string; dur?: number };
-  children?: RawTreeNode[];
-}
-
 /**
  * Extracts long main thread tasks and aggregated top-down / bottom-up call trees.
  */
@@ -54,24 +49,18 @@ export function extractTasks(loadedTrace: LoadedTrace, options?: ExtractTasksOpt
   const endMs = timeRange ? timeRange.endMs : microToMilli(traceBounds.max);
 
   if (treeMode === 'bottom-up') {
-    const bottomUp = new engine.Extras.TraceTree.BottomUpRootNode(
-      mainThread.entries as unknown as ConstructorParameters<
-        typeof engine.Extras.TraceTree.BottomUpRootNode
-      >[0],
-      {
-        textFilter: { accept: () => true },
-        filters: [],
-        startTime: engine.Types.Timing.Milli(startMs),
-        endTime: engine.Types.Timing.Milli(endMs),
-      },
-    );
+    const bottomUp = new engine.Extras.TraceTree.BottomUpRootNode(mainThread.entries, {
+      textFilter: { accept: () => true },
+      filters: [],
+      startTime: engine.Types.Timing.Milli(startMs),
+      endTime: engine.Types.Timing.Milli(endMs),
+    });
 
     const tasks: TaskItem[] = [];
     const children = bottomUp.children();
     for (const node of children.values()) {
       if (node.selfTime <= 0) continue;
-      // biome-ignore lint/suspicious/noExplicitAny: generic trace event
-      const frame = engine.Extras.TraceTree.eventStackFrame(node.event as any);
+      const frame = node.event ? engine.Extras.TraceTree.eventStackFrame(node.event) : null;
       tasks.push({
         startTimeMs: round(startMs),
         durationMs: round(node.totalTime),
@@ -91,22 +80,16 @@ export function extractTasks(loadedTrace: LoadedTrace, options?: ExtractTasksOpt
   }
 
   if (treeMode === 'top-down') {
-    const topDown = new engine.Extras.TraceTree.TopDownRootNode(
-      mainThread.entries as unknown as ConstructorParameters<
-        typeof engine.Extras.TraceTree.TopDownRootNode
-      >[0],
-      {
-        filters: [],
-        startTime: engine.Types.Timing.Milli(startMs),
-        endTime: engine.Types.Timing.Milli(endMs),
-      },
-    );
+    const topDown = new engine.Extras.TraceTree.TopDownRootNode(mainThread.entries, {
+      filters: [],
+      startTime: engine.Types.Timing.Milli(startMs),
+      endTime: engine.Types.Timing.Milli(endMs),
+    });
 
     const tasks: TaskItem[] = [];
     const children = topDown.children();
     for (const node of children.values()) {
-      // biome-ignore lint/suspicious/noExplicitAny: generic trace event
-      const frame = engine.Extras.TraceTree.eventStackFrame(node.event as any);
+      const frame = node.event ? engine.Extras.TraceTree.eventStackFrame(node.event) : null;
       tasks.push({
         startTimeMs: round(startMs),
         durationMs: round(node.totalTime),
@@ -127,9 +110,7 @@ export function extractTasks(loadedTrace: LoadedTrace, options?: ExtractTasksOpt
 
   // Default List Mode
   const tasks: TaskItem[] = [];
-  const entryToNode = parsedTrace.data.Renderer?.entryToNode as
-    | Map<unknown, RawTreeNode>
-    | undefined;
+  const entryToNode = parsedTrace.data.Renderer?.entryToNode;
 
   for (const entry of mainThread.entries) {
     if (!entry.dur) continue;
@@ -139,8 +120,7 @@ export function extractTasks(loadedTrace: LoadedTrace, options?: ExtractTasksOpt
     if (durMs < minDurationMs) continue;
     if (!isEventInBounds(startEntryMs, durMs, timeRange)) continue;
 
-    // biome-ignore lint/suspicious/noExplicitAny: trace helper accepts generic event
-    const isTop = entry.name === 'RunTask' || engine.Helpers.Trace.isTopLevelEvent(entry as any);
+    const isTop = entry.name === 'RunTask' || engine.Helpers.Trace.isTopLevelEvent(entry);
 
     if (isTop) {
       let functionName = entry.name;
@@ -149,8 +129,7 @@ export function extractTasks(loadedTrace: LoadedTrace, options?: ExtractTasksOpt
       let columnNumber: number | undefined;
       let selfTimeMs = durMs;
 
-      // biome-ignore lint/suspicious/noExplicitAny: stack frame extraction accepts generic event
-      const frame = engine.Extras.TraceTree.eventStackFrame(entry as any);
+      const frame = engine.Extras.TraceTree.eventStackFrame(entry);
       if (frame?.functionName) {
         functionName = frame.functionName;
         url = frame.url;
@@ -169,8 +148,7 @@ export function extractTasks(loadedTrace: LoadedTrace, options?: ExtractTasksOpt
 
           if (!frame?.functionName) {
             const mainChild = node.children[0].entry;
-            // biome-ignore lint/suspicious/noExplicitAny: stack frame extraction accepts generic event
-            const childFrame = engine.Extras.TraceTree.eventStackFrame(mainChild as any);
+            const childFrame = engine.Extras.TraceTree.eventStackFrame(mainChild);
             functionName = `${entry.name} > ${childFrame?.functionName || mainChild.name}`;
             url = childFrame?.url;
             lineNumber = childFrame?.lineNumber;

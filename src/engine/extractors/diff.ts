@@ -56,16 +56,13 @@ export function extractDiff(loadedTrace: LoadedTrace, options: ExtractDiffOption
   if (!mainThread?.entries?.length) {
     return result;
   }
-
-  const entriesParam = mainThread.entries as unknown as ConstructorParameters<
-    typeof engine.Extras.TraceTree.BottomUpRootNode
-  >[0];
+  const mainThreadEntries = mainThread.entries;
 
   function profileWindow(range: TimeRange): {
     map: Map<string, FnStats>;
     totalActive: number;
   } {
-    const bottomUp = new engine.Extras.TraceTree.BottomUpRootNode(entriesParam, {
+    const bottomUp = new engine.Extras.TraceTree.BottomUpRootNode(mainThreadEntries, {
       textFilter: { accept: () => true },
       filters: [],
       startTime: engine.Types.Timing.Milli(range.startMs),
@@ -78,8 +75,7 @@ export function extractDiff(loadedTrace: LoadedTrace, options: ExtractDiffOption
     const children = bottomUp.children();
     for (const node of children.values()) {
       if (node.selfTime <= 0) continue;
-      // biome-ignore lint/suspicious/noExplicitAny: generic trace event
-      const frame = engine.Extras.TraceTree.eventStackFrame(node.event as any);
+      const frame = node.event ? engine.Extras.TraceTree.eventStackFrame(node.event) : null;
       const fnName = frame?.functionName || node.event?.name || String(node.id) || 'Unknown';
 
       if (fnName === '(root)' || fnName === '(idle)') continue;

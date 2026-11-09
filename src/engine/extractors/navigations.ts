@@ -17,35 +17,23 @@ import { findInsightEntry } from '../helpers.js';
 import type { LoadedTrace } from '../loader.js';
 import type { NavigationItem, NavigationsResult } from '../types.js';
 
-interface RawNavigationEvent {
-  ts?: number;
-  args?: {
-    frame?: string;
-    data?: {
-      navigationId?: string;
-      documentLoaderURL?: string;
-      url?: string;
-      frame?: string;
-      isMainFrame?: boolean;
-      isOutermostMainFrame?: boolean;
-      isInPrimaryMainFrame?: boolean;
-    };
-  };
-}
+export type NavigationStart = NonNullable<
+  LoadedTrace['parsedTrace']['data']['Meta']
+>['mainFrameNavigations'][number];
 
 function buildNavigationItem(
   navId: string,
-  navEvent: RawNavigationEvent | undefined,
+  navEvent: NavigationStart | undefined,
   finalUrls: Map<string, string> | undefined,
   isMainFrame: boolean,
   parsedTrace: LoadedTrace['parsedTrace'],
 ): NavigationItem {
   const url =
     finalUrls?.get(navId) ||
-    navEvent?.args?.data?.documentLoaderURL ||
-    navEvent?.args?.data?.url ||
+    navEvent?.args.data?.documentLoaderURL ||
+    navEvent?.args.data?.url ||
     '';
-  const frameId = navEvent?.args?.frame || navEvent?.args?.data?.frame;
+  const frameId = navEvent?.args.frame;
   const tsMs = round(microToMilli(navEvent?.ts ?? 0));
   const insightEntry = findInsightEntry(parsedTrace, navId);
 
@@ -69,33 +57,30 @@ function buildNavigationItem(
  */
 export function extractNavigations(loadedTrace: LoadedTrace): NavigationsResult {
   const { parsedTrace } = loadedTrace;
-  const meta = parsedTrace.data?.Meta;
-  const navigationsMap = meta?.navigationsByNavigationId as
-    | Map<string, RawNavigationEvent>
-    | undefined;
-  const finalUrls = meta?.finalDisplayUrlByNavigationId as Map<string, string> | undefined;
-  const mainFrameId = meta?.mainFrameId as string | undefined;
-  const mainFrameNavs = meta?.mainFrameNavigations as RawNavigationEvent[] | undefined;
-  const insightsMap = parsedTrace.insights as Map<string, unknown> | undefined;
+  const meta = parsedTrace.data.Meta;
+  const navigationsMap = meta?.navigationsByNavigationId;
+  const finalUrls = meta?.finalDisplayUrlByNavigationId;
+  const mainFrameId = meta?.mainFrameId;
+  const mainFrameNavs = meta?.mainFrameNavigations;
+  const insightsMap = parsedTrace.insights;
 
-  const insightSetIds = insightsMap ? Array.from(insightsMap.keys()) : [];
+  const insightSetIds: string[] = insightsMap ? Array.from(insightsMap.keys()) : [];
   const navigations: NavigationItem[] = [];
   const seenIds = new Set<string>();
 
   const mainFrameNavIdSet = new Set(
     (mainFrameNavs || [])
-      .map((m) => m?.args?.data?.navigationId)
+      .map((m: NavigationStart) => m.args.data?.navigationId)
       .filter((id): id is string => typeof id === 'string' && id.length > 0),
   );
 
   if (navigationsMap && navigationsMap.size > 0) {
     for (const [navId, navEvent] of navigationsMap.entries()) {
       seenIds.add(navId);
-      const frameId = navEvent?.args?.frame || navEvent?.args?.data?.frame;
+      const frameId = navEvent.args.frame;
       const isMainFrame = Boolean(
-        navEvent?.args?.data?.isOutermostMainFrame ??
-          navEvent?.args?.data?.isInPrimaryMainFrame ??
-          navEvent?.args?.data?.isMainFrame ??
+        navEvent.args.data?.isOutermostMainFrame ??
+          navEvent.args.data?.isLoadingMainFrame ??
           mainFrameNavIdSet.has(navId) ??
           (frameId && frameId === mainFrameId),
       );
@@ -106,7 +91,7 @@ export function extractNavigations(loadedTrace: LoadedTrace): NavigationsResult 
 
   if (mainFrameNavs && mainFrameNavs.length > 0) {
     for (const navEvent of mainFrameNavs) {
-      const navId = navEvent?.args?.data?.navigationId;
+      const navId = navEvent.args.data?.navigationId;
       if (navId && !seenIds.has(navId)) {
         seenIds.add(navId);
         navigations.push(buildNavigationItem(navId, navEvent, finalUrls, true, parsedTrace));

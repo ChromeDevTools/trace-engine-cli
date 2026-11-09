@@ -57,4 +57,68 @@ describe('Insights Extractor', () => {
     assert.equal(result.clsCulprits, undefined);
     assert.equal(result.renderBlocking, undefined);
   });
+
+  test('extractInsights parses LCP breakdown and render blocking resources for navigation-cwv-trace', async () => {
+    const fixturePath = path.resolve(import.meta.dirname, '../fixtures/navigation-cwv-trace.json');
+    const cwvLoaded = await loadTraceFromFile(fixturePath);
+    const result = extractInsights(cwvLoaded);
+
+    assert.deepEqual(result.lcpBreakdown, {
+      totalLcpMs: 4150,
+      ttfbMs: 65,
+      loadDelayMs: 185,
+      loadDurationMs: 900,
+      renderDelayMs: 3000,
+      lcpElement: 'IMG',
+      lcpUrl: 'https://example.com/hero.jpg',
+    });
+    assert.deepEqual(result.renderBlocking, [
+      {
+        url: 'https://example.com/styles.css',
+        durationMs: 100,
+        transferSizeBytes: 4096,
+      },
+    ]);
+    assert.ok(result.warnings);
+    assert.ok(result.warnings.includes('High LCP element render delay: 3000ms.'));
+    assert.ok(result.warnings.includes('1 render-blocking requests found.'));
+
+    const lcpCategoryOnly = extractInsights(cwvLoaded, { category: 'lcp' });
+    assert.deepEqual(lcpCategoryOnly.lcpBreakdown, result.lcpBreakdown);
+    assert.equal(lcpCategoryOnly.renderBlocking, undefined);
+    assert.equal(lcpCategoryOnly.thirdParties, undefined);
+  });
+
+  test('extractInsights parses INP breakdown for interaction-trace', async () => {
+    const fixturePath = path.resolve(import.meta.dirname, '../fixtures/interaction-trace.json');
+    const interactionLoaded = await loadTraceFromFile(fixturePath);
+    const result = extractInsights(interactionLoaded);
+
+    assert.deepEqual(result.inpBreakdown, {
+      totalDurationMs: 250,
+      inputDelayMs: 5,
+      processingDurationMs: 200,
+      presentationDelayMs: 45,
+      eventType: 'click',
+      target: 'BUTTON',
+    });
+    assert.ok(result.warnings);
+    assert.ok(
+      result.warnings.includes('Longest interaction (click) exceeded 200ms threshold: 250ms.'),
+    );
+  });
+
+  test('extractInsights parses CLS culprits for shifts-trace', async () => {
+    const fixturePath = path.resolve(import.meta.dirname, '../fixtures/shifts-trace.json');
+    const shiftsLoaded = await loadTraceFromFile(fixturePath);
+    const result = extractInsights(shiftsLoaded);
+
+    assert.deepEqual(result.clsCulprits, [
+      {
+        score: 0.15,
+        timestampMs: 1300,
+        culpritNodes: ['Node #42'],
+      },
+    ]);
+  });
 });

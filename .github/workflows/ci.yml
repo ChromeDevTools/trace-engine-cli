@@ -41,8 +41,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Run lint, tests, and build
+      - name: Run lint, build, and tests
         run: |
           npm run check
-          npm test
           npm run build
+          npm test
+          node ./dist/bin/trace-engine-cli.js test/fixtures/basic-trace.json > /dev/null

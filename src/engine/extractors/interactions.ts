@@ -17,32 +17,14 @@ import { microToMilli, round } from '../../utils/units.js';
 import type { LoadedTrace } from '../loader.js';
 import type { InteractionItem, InteractionsResult } from '../types.js';
 
+export type SyntheticInteractionPair = NonNullable<
+  NonNullable<
+    LoadedTrace['parsedTrace']['data']['UserInteractions']
+  >['interactionEventsWithNoNesting']
+>[number];
+
 export interface ExtractInteractionsOptions {
   timeRange?: TimeRange;
-}
-
-interface RawInteractionEvent {
-  ts: number;
-  dur?: number;
-  type?: string;
-  name?: string;
-  interactionId?: number;
-  inputDelay?: number;
-  mainThreadHandling?: number;
-  processingDuration?: number;
-  presentationDelay?: number;
-  args?: {
-    data?: {
-      nodeName?: string;
-      beginEvent?: {
-        args?: {
-          data?: {
-            nodeName?: string;
-          };
-        };
-      };
-    };
-  };
 }
 
 export function extractInteractions(
@@ -52,33 +34,34 @@ export function extractInteractions(
   const { parsedTrace } = loadedTrace;
   const timeRange = options?.timeRange;
 
-  const rawEvents = (parsedTrace.data.UserInteractions?.interactionEventsWithNoNesting ||
+  const rawEvents: readonly SyntheticInteractionPair[] =
+    parsedTrace.data.UserInteractions?.interactionEventsWithNoNesting ||
     parsedTrace.data.UserInteractions?.interactionEvents ||
-    []) as RawInteractionEvent[];
+    [];
 
   const interactions: InteractionItem[] = [];
 
   for (const ev of rawEvents) {
     const startMs = microToMilli(ev.ts);
-    const durMs = microToMilli(ev.dur ?? 0);
+    const durMs = microToMilli(ev.dur);
 
     if (!isEventInBounds(startMs, durMs, timeRange)) {
       continue;
     }
 
-    const inputDelayMs = microToMilli(ev.inputDelay ?? 0);
-    const processingMs = microToMilli(ev.mainThreadHandling ?? ev.processingDuration ?? 0);
-    const presentationDelayMs = microToMilli(ev.presentationDelay ?? 0);
+    const inputDelayMs = microToMilli(ev.inputDelay);
+    const processingMs = microToMilli(ev.mainThreadHandling);
+    const presentationDelayMs = microToMilli(ev.presentationDelay);
 
-    let targetElement: string | undefined;
-    if (ev.args?.data?.nodeName) {
-      targetElement = ev.args.data.nodeName;
-    } else if (ev.args?.data?.beginEvent?.args?.data?.nodeName) {
-      targetElement = ev.args.data.beginEvent.args.data.nodeName;
-    }
+    // Synthetic interaction events store their target node name inside the begin event payload.
+    const beginData = ev.args.data.beginEvent.args.data;
+    const targetElement =
+      beginData && 'nodeName' in beginData && typeof beginData.nodeName === 'string'
+        ? beginData.nodeName
+        : undefined;
 
     interactions.push({
-      eventType: ev.type || ev.name || 'interaction',
+      eventType: ev.type || 'interaction',
       startTimeMs: round(startMs),
       durationMs: round(durMs),
       inputDelayMs: round(inputDelayMs),

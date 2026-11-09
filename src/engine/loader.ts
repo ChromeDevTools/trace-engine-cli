@@ -17,12 +17,14 @@ import path from 'node:path';
 import zlib from 'node:zlib';
 import { loadTraceEngine, type TraceEngine } from './adapter.js';
 
+export type ParsedTrace = NonNullable<
+  ReturnType<InstanceType<TraceEngine['TraceModel']['Model']>['parsedTrace']>
+>;
+
 export interface LoadedTrace {
   engine: TraceEngine;
-  // biome-ignore lint/suspicious/noExplicitAny: dynamic trace engine compatibility
-  parsedTrace: any;
-  // biome-ignore lint/suspicious/noExplicitAny: dynamic trace engine compatibility
-  rawEvents: any[];
+  parsedTrace: ParsedTrace;
+  rawEvents: unknown[];
 }
 
 /**
@@ -98,7 +100,7 @@ function isLanternError(arg: unknown): boolean {
  * Capabilities:
  * - Transparently gunzips files with `.gz` extensions or gzip magic bytes (`0x1f 0x8b`).
  * - Supports raw event arrays (`[...]`) and standard Chrome wrapper objects (`{ traceEvents: [...] }`).
- * - Normalizes `parsedTrace` retrieval across different DevTools engine versions (`parsedTrace(0)` vs `traceParsedData(0)`).
+ * - Normalizes `parsedTrace` retrieval via `model.parsedTrace(0)`.
  * - Filters internal non-fatal Lantern simulation errors during model parsing.
  *
  * @param filePath - Relative or absolute path to the trace file.
@@ -146,21 +148,13 @@ export async function loadTraceFromFile(
       origError(...args);
     };
 
-    // biome-ignore lint/suspicious/noExplicitAny: trace engine parse events typing
-    await model.parse(rawEvents as any);
+    await model.parse(rawEvents as Parameters<typeof model.parse>[0]);
   } finally {
     console.warn = origWarn;
     console.error = origError;
   }
 
-  // Normalize parsedTrace across devtools engine versions
-  const parsedTrace =
-    typeof model.parsedTrace === 'function'
-      ? model.parsedTrace(0)
-      : typeof (model as unknown as { traceParsedData: (i: number) => unknown }).traceParsedData ===
-          'function'
-        ? (model as unknown as { traceParsedData: (i: number) => unknown }).traceParsedData(0)
-        : null;
+  const parsedTrace = model.parsedTrace(0);
 
   if (!parsedTrace) {
     throw new Error('Failed to retrieve parsed trace data from TraceEngine model.');

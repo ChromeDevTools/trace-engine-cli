@@ -256,4 +256,59 @@ describe('CLI Dispatcher', () => {
       await captureCliOutput(['node', 'trace-engine-cli', 'events', fixturesDir]);
     }, /is a directory\. Trace engine commands accept a single trace file\. To search across multiple files or directories, use: trace-engine-cli scan/);
   });
+
+  test('runs with custom trace-engine path', async () => {
+    const fixturePath = path.resolve(import.meta.dirname, 'fixtures/basic-trace.json');
+    const customEnginePath = path.resolve(
+      import.meta.dirname,
+      '../node_modules/@paulirish/trace_engine/models/trace/trace.js',
+    );
+    const output = await captureCliOutput([
+      'node',
+      'trace-engine-cli',
+      fixturePath,
+      '--trace-engine',
+      customEnginePath,
+    ]);
+    assert.ok(output.includes('bounds:'));
+    assert.ok(output.includes('https://example.com/test'));
+  });
+
+  test('runs interactions subcommand', async () => {
+    const fixturePath = path.resolve(import.meta.dirname, 'fixtures/interaction-trace.json');
+    const output = await captureCliOutput([
+      'node',
+      'trace-engine-cli',
+      'interactions',
+      fixturePath,
+    ]);
+    assert.ok(output.includes('click'));
+    assert.ok(output.includes('BUTTON'));
+  });
+
+  test('runs insights subcommand with --category lcp', async () => {
+    const fixturePath = path.resolve(import.meta.dirname, 'fixtures/navigation-cwv-trace.json');
+    const output = await captureCliOutput([
+      'node',
+      'trace-engine-cli',
+      'insights',
+      fixturePath,
+      '--category',
+      'lcp',
+    ]);
+    assert.ok(output.includes('https://example.com/hero.jpg'));
+    assert.ok(output.includes('totalLcpMs: 4150'));
+  });
+
+  test('runs network subcommand with --render-blocking', async () => {
+    const fixturePath = path.resolve(import.meta.dirname, 'fixtures/navigation-cwv-trace.json');
+    const output = await captureCliOutput([
+      'node',
+      'trace-engine-cli',
+      'network',
+      fixturePath,
+      '--render-blocking',
+    ]);
+    assert.ok(output.includes('https://example.com/styles.css'));
+  });
 });

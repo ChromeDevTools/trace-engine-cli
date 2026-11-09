@@ -46,17 +46,6 @@ export interface ExtractOverviewOptions {
   timeRange?: TimeRange;
 }
 
-interface RawNavEvent {
-  ts: number;
-  args?: {
-    frame?: string;
-    data?: {
-      documentLoaderURL?: string;
-      navigationId?: string;
-    };
-  };
-}
-
 /**
  * Extracts high-level trace metadata, Core Web Vitals, and main thread category distribution.
  * All duration and timestamp properties are normalized to milliseconds (ms).
@@ -77,10 +66,8 @@ export function extractOverview(
 
   // 2. Main URL & Navigation Start
   const mainUrl = data.Meta.mainFrameURL || null;
-  const mainNavs = (data.Meta.mainFrameNavigations || []) as RawNavEvent[];
-  const allNavs = Array.from(
-    (data.Meta.navigationsByNavigationId?.values() || []) as Iterable<RawNavEvent>,
-  );
+  const mainNavs = data.Meta.mainFrameNavigations || [];
+  const allNavs = Array.from(data.Meta.navigationsByNavigationId?.values() || []);
   const firstNav = mainNavs[0] || allNavs[0];
   const navigationStartMs = firstNav ? round(microToMilli(firstNav.ts)) : null;
 
@@ -92,22 +79,23 @@ export function extractOverview(
   let lcp: OverviewResult['coreWebVitals']['lcp'] = null;
 
   if (pageMetrics) {
+    const MetricName = engine.Handlers.ModelHandlers.PageLoadMetrics.MetricName;
     for (const navMetrics of pageMetrics.values()) {
-      const fcpMetric = navMetrics.get('FCP');
+      const fcpMetric = navMetrics.get(MetricName.FCP);
       if (fcpMetric && fcpMetric.timing !== undefined && !fcp) {
         const valMs = round(microToMilli(fcpMetric.timing));
         fcp = {
           valueMs: valMs,
-          rating: (fcpMetric.classification as CwvRating) || rateFcp(valMs),
+          rating: rateFcp(valMs),
         };
       }
 
-      const lcpMetric = navMetrics.get('LCP');
+      const lcpMetric = navMetrics.get(MetricName.LCP);
       if (lcpMetric && lcpMetric.timing !== undefined && !lcp) {
         const valMs = round(microToMilli(lcpMetric.timing));
         lcp = {
           valueMs: valMs,
-          rating: (lcpMetric.classification as CwvRating) || rateLcp(valMs),
+          rating: rateLcp(valMs),
         };
       }
     }
@@ -183,17 +171,12 @@ export function extractOverview(
   const mainThread = getMainRendererThread(data);
 
   if (mainThread?.entries && mainThread.entries.length > 0) {
-    const bottomUp = new engine.Extras.TraceTree.BottomUpRootNode(
-      mainThread.entries as unknown as ConstructorParameters<
-        typeof engine.Extras.TraceTree.BottomUpRootNode
-      >[0],
-      {
-        textFilter: { accept: () => true },
-        filters: [],
-        startTime: engine.Types.Timing.Milli(minMs),
-        endTime: engine.Types.Timing.Milli(maxMs),
-      },
-    );
+    const bottomUp = new engine.Extras.TraceTree.BottomUpRootNode(mainThread.entries, {
+      textFilter: { accept: () => true },
+      filters: [],
+      startTime: engine.Types.Timing.Milli(minMs),
+      endTime: engine.Types.Timing.Milli(maxMs),
+    });
 
     const children = bottomUp.children();
     for (const node of children.values()) {

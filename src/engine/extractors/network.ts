@@ -17,36 +17,15 @@ import { microToMilli, round } from '../../utils/units.js';
 import type { LoadedTrace } from '../loader.js';
 import type { InitiatorChainItem, NetworkRequestItem, NetworkResult } from '../types.js';
 
+export type SyntheticNetworkRequest = NonNullable<
+  LoadedTrace['parsedTrace']['data']['NetworkRequests']
+>['byTime'][number];
+
 export interface ExtractNetworkOptions {
   renderBlocking?: boolean;
   slowest?: number;
   initiatorChain?: string;
   timeRange?: TimeRange;
-}
-
-interface RawSyntheticData {
-  queueing?: number;
-  dnsLookup?: number;
-  ssl?: number;
-  waiting?: number;
-  download?: number;
-}
-
-interface RawNetworkRequest {
-  name?: string;
-  ts: number;
-  dur?: number;
-  args?: {
-    data?: {
-      requestId?: string;
-      url?: string;
-      mimeType?: string;
-      priority?: string;
-      renderBlocking?: string;
-      encodedDataLength?: number;
-      syntheticData?: RawSyntheticData;
-    };
-  };
 }
 
 export function extractNetwork(
@@ -59,7 +38,7 @@ export function extractNetwork(
   const initiatorTarget = options?.initiatorChain;
   const timeRange = options?.timeRange;
 
-  const rawRequests = (parsedTrace.data.NetworkRequests?.byTime || []) as RawNetworkRequest[];
+  const rawRequests = parsedTrace.data.NetworkRequests?.byTime || [];
   const result: NetworkResult = {
     requests: [],
   };
@@ -68,28 +47,25 @@ export function extractNetwork(
   if (initiatorTarget) {
     const targetReq = rawRequests.find(
       (r) =>
-        r.args?.data?.requestId === initiatorTarget ||
-        Boolean(r.args?.data?.url?.includes(initiatorTarget)),
+        r.args.data.requestId === initiatorTarget ||
+        Boolean(r.args.data.url.includes(initiatorTarget)),
     );
 
     if (targetReq) {
       const chain: InitiatorChainItem[] = [];
-      let current: RawNetworkRequest | undefined = targetReq;
-      const visited = new Set<RawNetworkRequest>();
+      let current: SyntheticNetworkRequest | undefined = targetReq;
+      const visited = new Set<SyntheticNetworkRequest>();
 
       while (current && !visited.has(current)) {
         visited.add(current);
-        const url = current.args?.data?.url || current.name || 'Unknown';
-        const initiator = engine.Extras.Initiators.getNetworkInitiator(
-          parsedTrace.data,
-          current as unknown as Parameters<typeof engine.Extras.Initiators.getNetworkInitiator>[1],
-        ) as RawNetworkRequest | undefined;
-        const initiatorUrl = initiator?.args?.data?.url || initiator?.name;
+        const url = current.args.data.url || current.name || 'Unknown';
+        const initiator = engine.Extras.Initiators.getNetworkInitiator(parsedTrace.data, current);
+        const initiatorUrl = initiator?.args.data.url || initiator?.name;
 
         chain.push({
           url,
           initiatorUrl,
-          type: current.args?.data?.mimeType || current.name,
+          type: current.args.data.mimeType || current.name,
         });
 
         current = initiator;
@@ -120,22 +96,22 @@ export function extractNetwork(
   for (const req of rawRequests) {
     const startMs = microToMilli(req.ts);
     const durMs = microToMilli(req.dur ?? 0);
-    const url: string = req.args?.data?.url || '';
+    const url: string = req.args.data.url;
 
     if (!isEventInBounds(startMs, durMs, timeRange)) {
       continue;
     }
 
     const isBlocking =
-      req.args?.data?.renderBlocking === 'blocking' ||
-      req.args?.data?.renderBlocking === 'in_body_parser_blocking' ||
+      req.args.data.renderBlocking === 'blocking' ||
+      req.args.data.renderBlocking === 'in_body_parser_blocking' ||
       blockingUrls.has(url);
 
     if (renderBlockingOnly && !isBlocking) {
       continue;
     }
 
-    const syn = req.args?.data?.syntheticData;
+    const syn = req.args.data.syntheticData;
     const queueingMs = syn?.queueing ? microToMilli(syn.queueing) : 0;
     const dnsMs = syn?.dnsLookup ? microToMilli(syn.dnsLookup) : 0;
     const sslMs = syn?.ssl ? microToMilli(syn.ssl) : 0;
@@ -143,10 +119,10 @@ export function extractNetwork(
     const downloadMs = syn?.download ? microToMilli(syn.download) : 0;
 
     processed.push({
-      requestId: req.args?.data?.requestId,
+      requestId: req.args.data.requestId,
       url,
-      mimeType: req.args?.data?.mimeType || '',
-      priority: req.args?.data?.priority || 'Normal',
+      mimeType: req.args.data.mimeType || '',
+      priority: req.args.data.priority || 'Normal',
       timing: {
         queueingMs: round(queueingMs),
         dnsMs: round(dnsMs),
@@ -155,7 +131,7 @@ export function extractNetwork(
         downloadMs: round(downloadMs),
         totalDurationMs: round(durMs),
       },
-      transferSizeBytes: req.args?.data?.encodedDataLength ?? 0,
+      transferSizeBytes: req.args.data.encodedDataLength ?? 0,
       renderBlocking: isBlocking,
     });
   }

@@ -58,8 +58,7 @@ export function extractFind(loadedTrace: LoadedTrace, options: ExtractFindOption
       continue;
     }
 
-    // biome-ignore lint/suspicious/noExplicitAny: stack frame extraction accepts generic event
-    const frame = engine.Extras.TraceTree.eventStackFrame(entry as any);
+    const frame = engine.Extras.TraceTree.eventStackFrame(entry);
     const fnName = frame?.functionName || entry.name || '';
 
     if (fnName.toLowerCase().includes(queryLower)) {

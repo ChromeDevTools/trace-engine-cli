@@ -16,7 +16,7 @@ import { isEventInBounds, type TimeRange } from '../../utils/filter.js';
 import { microToMilli, round } from '../../utils/units.js';
 import { getMainRendererThread } from '../helpers.js';
 import type { LoadedTrace } from '../loader.js';
-import type { SchedulingResult, SchedulingStatItem } from '../types.js';
+import type { RawTraceEvent, SchedulingResult, SchedulingStatItem } from '../types.js';
 
 export interface ExtractSchedulingOptions {
   timeRange?: TimeRange;
@@ -47,11 +47,18 @@ export function extractScheduling(
   };
 
   const mainThread = getMainRendererThread(parsedTrace.data);
-  // biome-ignore lint/suspicious/noExplicitAny: generic event scanning
-  const eventsToScan: any[] = mainThread?.entries || rawEvents || [];
+  interface SchedulableEntry {
+    name?: string;
+    ts?: number;
+    dur?: number;
+  }
+
+  const eventsToScan: readonly SchedulableEntry[] =
+    mainThread?.entries ??
+    rawEvents.filter((ev): ev is RawTraceEvent => typeof ev === 'object' && ev !== null);
 
   for (const entry of eventsToScan) {
-    const startMs = microToMilli(entry.ts);
+    const startMs = microToMilli(entry.ts ?? 0);
     const durMs = microToMilli(entry.dur ?? 0);
 
     if (!isEventInBounds(startMs, durMs, timeRange)) {
