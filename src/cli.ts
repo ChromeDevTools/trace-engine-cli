@@ -50,9 +50,6 @@ function parseCommaList(val?: unknown): string[] | undefined {
   return items.length > 0 ? items : undefined;
 }
 
-/**
- * Builds a yargs coerce function that accepts only integers >= 1.
- */
 function positiveInteger(flag: string): (value: unknown) => number {
   return (value) => {
     const num = typeof value === 'number' ? value : Number(value);
@@ -63,9 +60,6 @@ function positiveInteger(flag: string): (value: unknown) => number {
   };
 }
 
-/**
- * Builds a yargs coerce function that accepts only finite numbers >= 0.
- */
 function nonNegativeNumber(flag: string): (value: unknown) => number {
   return (value) => {
     const num = typeof value === 'number' ? value : Number(value);
@@ -76,9 +70,6 @@ function nonNegativeNumber(flag: string): (value: unknown) => number {
   };
 }
 
-/**
- * Builds a yargs coerce function that parses a duration with optional unit and accepts only values > 0.
- */
 function positiveDuration(flag: string): (value: unknown) => number {
   return (value) => {
     const ms = parseTimeValue(String(value));
@@ -109,9 +100,6 @@ function loadTrace(args: CliArgs): Promise<LoadedTrace> {
   return loadTraceFromFile(args.file as string, args.traceEngine as string | undefined);
 }
 
-/**
- * Loads the trace and resolves `--time-range` against its bounds.
- */
 async function loadTraceWithTimeRange(
   args: CliArgs,
 ): Promise<{ loaded: LoadedTrace; timeRange: TimeRange | undefined }> {
