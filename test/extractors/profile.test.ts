@@ -80,4 +80,30 @@ describe('Profile Extractor', () => {
     assert.ok(functionNames.includes('Paint'));
     assert.ok(functionNames.includes('RunTask'));
   });
+
+  test('rejects bucket sizes that create more than 1000 buckets', async () => {
+    const fixturePath = path.resolve(import.meta.dirname, '../fixtures/basic-trace.json');
+    const loaded = await loadTraceFromFile(fixturePath);
+
+    assert.throws(
+      () =>
+        extractProfile(loaded, {
+          timeRange: { startMs: 1000, endMs: 1300 },
+          bucketMs: 0.29,
+        }),
+      /Bucket size 0\.29ms creates 1035 buckets over 300ms\. The maximum is 1000\. Use a bucket size of at least 0\.3ms\./,
+    );
+  });
+
+  test('accepts a bucket size that creates exactly 1000 buckets', async () => {
+    const fixturePath = path.resolve(import.meta.dirname, '../fixtures/basic-trace.json');
+    const loaded = await loadTraceFromFile(fixturePath);
+
+    const result = extractProfile(loaded, {
+      timeRange: { startMs: 1000, endMs: 1300 },
+      bucketMs: 0.3,
+    });
+
+    assert.equal(result.buckets.length, 1000);
+  });
 });
