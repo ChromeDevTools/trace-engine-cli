@@ -396,6 +396,8 @@ trace-engine-cli find trace.json.gz --function "drawEventTiles" --time-range "3.
 ### 5. `profile`
 Time-bucketed CPU profiling progression across discrete slices (e.g. 50ms buckets) to analyze temporal shifts in CPU consumption during gestures.
 
+`--bucket` must be at least `0.01ms`. A profile can have a maximum of 1000 buckets. If the time range divided by the bucket size is more than 1000, the command fails and shows the smallest valid bucket size.
+
 ```bash
 # Profile with automatic bucket sizing
 trace-engine-cli profile trace.json.gz --time-range "3.5s,4.1s"

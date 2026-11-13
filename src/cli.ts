@@ -22,7 +22,7 @@ import { extractInteractions } from './engine/extractors/interactions.js';
 import { extractNavigations } from './engine/extractors/navigations.js';
 import { extractNetwork } from './engine/extractors/network.js';
 import { extractOverview } from './engine/extractors/overview.js';
-import { extractProfile } from './engine/extractors/profile.js';
+import { extractProfile, MIN_BUCKET_MS } from './engine/extractors/profile.js';
 import { scanTraces } from './engine/extractors/scan.js';
 import { extractScheduling } from './engine/extractors/scheduling.js';
 import { extractShifts } from './engine/extractors/shifts.js';
@@ -70,14 +70,12 @@ function nonNegativeNumber(flag: string): (value: unknown) => number {
   };
 }
 
-function positiveDuration(flag: string): (value: unknown) => number {
-  return (value) => {
-    const ms = parseTimeValue(String(value));
-    if (ms <= 0) {
-      throw new Error(`--${flag} must be a duration > 0. Received: ${value}`);
-    }
-    return ms;
-  };
+function bucketDuration(value: unknown): number {
+  const ms = parseTimeValue(String(value));
+  if (ms < MIN_BUCKET_MS) {
+    throw new Error(`--bucket must be a duration >= ${MIN_BUCKET_MS}ms. Received: ${value}`);
+  }
+  return ms;
 }
 
 // Declared per command, so commands that do not filter by time reject these options.
@@ -292,7 +290,7 @@ export async function runCli(argv: string[]): Promise<void> {
           .option('bucket', {
             type: 'string',
             requiresArg: true,
-            coerce: positiveDuration('bucket'),
+            coerce: bucketDuration,
             describe:
               'Bucket slice duration with optional unit (e.g. "50ms", "0.1s", "50", default: dynamic ~50ms)',
           })

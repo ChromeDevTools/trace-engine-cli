@@ -498,14 +498,28 @@ describe('CLI option validation', () => {
   test('rejects --bucket 0 on profile', async () => {
     await assert.rejects(
       captureCliOutput(['node', 'trace-engine-cli', 'profile', tracePath, '--bucket', '0']),
-      /--bucket must be a duration > 0\. Received: 0/,
+      /--bucket must be a duration >= 0\.01ms\. Received: 0/,
     );
   });
 
   test('rejects negative --bucket on profile', async () => {
     await assert.rejects(
       captureCliOutput(['node', 'trace-engine-cli', 'profile', tracePath, '--bucket', '-5ms']),
-      /--bucket must be a duration > 0\. Received: -5ms/,
+      /--bucket must be a duration >= 0\.01ms\. Received: -5ms/,
+    );
+  });
+
+  test('rejects --bucket below 0.01ms on profile', async () => {
+    await assert.rejects(
+      captureCliOutput(['node', 'trace-engine-cli', 'profile', tracePath, '--bucket', '1us']),
+      /--bucket must be a duration >= 0\.01ms\. Received: 1us/,
+    );
+  });
+
+  test('rejects --bucket that creates more than 1000 buckets on profile', async () => {
+    await assert.rejects(
+      captureCliOutput(['node', 'trace-engine-cli', 'profile', tracePath, '--bucket', '10us']),
+      /Bucket size 0\.01ms creates 16000 buckets over 160ms\. The maximum is 1000\./,
     );
   });
 });
