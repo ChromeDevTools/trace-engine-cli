@@ -19,6 +19,8 @@ Raw Chromium performance traces are massive (often 20MB–200MB+ uncompressed), 
 
 ## Installation
 
+Requires Node.js 22.17 or later.
+
 Install [`trace-engine-cli`](https://www.npmjs.com/package/trace-engine-cli) globally from npm to add `trace-engine-cli` to your `$PATH`:
 
 ```bash
