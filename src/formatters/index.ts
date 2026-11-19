@@ -37,6 +37,7 @@ export interface FormatOptions {
 
 const NEXT_STEPS_HINT_TOON = `
 # Drill-down commands:
+# - trace-engine-cli report <file> [--sections <list>]
 # - trace-engine-cli insights <file> [--category <lcp|inp|cls|render-blocking|third-parties>] [--navigation <id>]
 # - trace-engine-cli tasks <file> [--min-duration <ms>] [--tree <bottom-up|top-down>] [--url-only] [--top <n>]
 # - trace-engine-cli find <file> [--function <name>] [--url <pattern>] [--time-range <start,end>]
@@ -57,6 +58,7 @@ const NEXT_STEPS_HINT_TOON = `
 const NEXT_STEPS_HINT_MD = `
 ---
 ### Drill-down Commands
+- \`trace-engine-cli report <file> [--sections <list>]\`
 - \`trace-engine-cli insights <file> [--category <lcp|inp|cls|render-blocking|third-parties>] [--navigation <id>]\`
 - \`trace-engine-cli tasks <file> [--min-duration <ms>] [--tree <bottom-up|top-down>] [--url-only] [--top <n>]\`
 - \`trace-engine-cli find <file> [--function <name>] [--url <pattern>] [--time-range <start,end>]\`

@@ -23,6 +23,12 @@ import { extractNavigations } from './engine/extractors/navigations.js';
 import { extractNetwork } from './engine/extractors/network.js';
 import { extractOverview } from './engine/extractors/overview.js';
 import { extractProfile } from './engine/extractors/profile.js';
+import {
+  DEFAULT_REPORT_SECTIONS,
+  extractReport,
+  REPORT_SECTIONS,
+  type ReportSection,
+} from './engine/extractors/report.js';
 import { scanTraces } from './engine/extractors/scan.js';
 import { extractScheduling } from './engine/extractors/scheduling.js';
 import { extractShifts } from './engine/extractors/shifts.js';
@@ -59,6 +65,22 @@ function positiveInteger(value: number): number {
     throw new Error('Result limits must be positive integers.');
   }
   return value;
+}
+
+function parseReportSections(value?: string): ReportSection[] {
+  if (value === undefined) return DEFAULT_REPORT_SECTIONS;
+
+  const names = parseCommaList(value);
+  if (!names) throw new Error('--sections must include at least one report section.');
+  return [...new Set(names)].map((name) => {
+    const section = REPORT_SECTIONS.find((supported) => supported === name);
+    if (!section) {
+      throw new Error(
+        `Unknown report section "${name}". Choose from ${REPORT_SECTIONS.join(', ')}.`,
+      );
+    }
+    return section;
+  });
 }
 
 export async function runCli(argv: string[]): Promise<void> {
@@ -116,6 +138,48 @@ export async function runCli(argv: string[]): Promise<void> {
             includeHint: isDefaultCmd,
           }),
         );
+      },
+    )
+    .command(
+      'report <file>',
+      'Run several analyses with a single parse',
+      (y) =>
+        y
+          .positional('file', {
+            describe: 'Path to trace file (.json or .json.gz)',
+            type: 'string',
+            demandOption: true,
+          })
+          .option('sections', {
+            type: 'string',
+            describe: `Comma-separated analyses: ${REPORT_SECTIONS.join(', ')} (default: ${DEFAULT_REPORT_SECTIONS.join(',')})`,
+          })
+          .option('thread', THREAD_OPTION)
+          .option('strip-query', {
+            type: 'boolean',
+            describe: 'Remove URL query strings from the network section',
+          }),
+      async (args) => {
+        const sections = parseReportSections(args.sections);
+        const loaded = await loadTraceFromFile(args.file, args.traceEngine);
+        const timeRange = resolveTimeRange(
+          parseTimeRange(args.timeRange),
+          loaded.parsedTrace.data.Meta.traceBounds,
+          args.absoluteTimestamps,
+        );
+        const results = extractReport(loaded, {
+          sections,
+          timeRange,
+          threadId: args.thread,
+          stripQuery: args.stripQuery,
+        });
+        const output =
+          args.format === 'md'
+            ? results
+                .map(([type, result]) => formatResult(result, { format: 'md', type }))
+                .join('\n\n---\n\n')
+            : formatResult(Object.fromEntries(results), { format: args.format });
+        console.log(output);
       },
     )
     .command(

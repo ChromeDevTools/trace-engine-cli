@@ -43,9 +43,9 @@ npx trace-engine-cli /path/to/trace.json.gz
 ### How Agents Discover Capabilities
 
 1. **Default overview + built-in drill-down hints (`trace-engine-cli <file>`)**:
-   Calling `trace-engine-cli <file>` with no subcommand runs `overview` and appends a `# Drill-down commands:` reference footer to the output. That first call gives the agent the trace bounds, Core Web Vitals, main-thread category breakdown, and the exact syntax for every follow-up subcommand.
+   Calling `trace-engine-cli <file>` with no subcommand runs `overview` and appends a `# Drill-down commands:` reference footer to the output. That first call gives the agent the trace bounds, Core Web Vitals, main-thread category breakdown, and syntax for follow-up commands.
 2. **Top-level command discovery (`trace-engine-cli` or `trace-engine-cli --help`)**:
-   Running `trace-engine-cli` with no arguments or passing `--help` prints all 13 subcommands (`overview`, `insights`, `tasks`, `find`, `profile`, `diff`, `scheduling`, `network`, `interactions`, `shifts`, `events`, `navigations`, `scan`) and global options.
+   Running `trace-engine-cli` with no arguments or passing `--help` prints the available commands and global options.
 3. **Subcommand flag discovery (`trace-engine-cli <subcommand> --help`)**:
    Running `--help` on any subcommand (for example, `trace-engine-cli insights --help` or `trace-engine-cli events --help`) prints the flags, choices, and defaults for that command.
 
@@ -57,7 +57,8 @@ Add this snippet to your project instruction file (`AGENTS.md`, `CLAUDE.md`, or 
 ## Performance Trace Analysis (`.json`, `.json.gz`)
 
 - Never parse or search trace files manually with `jq`, `python`, `node -e`, `zcat`, or shell loops. Use `trace-engine-cli`, which handles gzip decompression, DevTools Trace Engine parsing, and token-compact TOON formatting.
-- Start any single-trace investigation by running `trace-engine-cli <file>`. Read the overview and the `# Drill-down commands:` footer appended to the output to choose follow-up commands.
+- Start an open-ended trace investigation with `trace-engine-cli <file>`. Use its drill-down suggestions to choose follow-up commands.
+- When you already know which analyses you need for one trace, run `trace-engine-cli report <file> --sections <list>` to parse it once.
 - To search across multiple trace files or directories, run `trace-engine-cli scan <dir-or-glob> [options]`.
 - Run `trace-engine-cli --help` or `trace-engine-cli <subcommand> --help` to inspect available subcommands and flags.
 ```
@@ -103,6 +104,15 @@ Use `trace-engine-cli` to inspect, profile, and diagnose performance recordings 
 High-level trace metadata, duration, Core Web Vitals (LCP, INP, CLS), and main-thread category breakdown (Scripting, Layout, Rendering, GC, System, Idle). Calling `trace-engine-cli <file>` without `overview` also prints the `# Drill-down commands:` reference footer.
 ```bash
 trace-engine-cli trace.json.gz
+```
+
+### `trace-engine-cli report <file>`
+When you know which analyses a question needs, select them with `--sections`
+so they share one trace parse. Run `trace-engine-cli report --help` to see the
+available sections.
+
+```bash
+trace-engine-cli report trace.json.gz --sections overview,shifts,network
 ```
 
 ### `trace-engine-cli insights <file>`
@@ -333,6 +343,7 @@ mainThreadBreakdown:
 warnings[1]: 1 render-blocking resource(s) detected.
 
 # Drill-down commands:
+# - trace-engine-cli report <file> [--sections <list>]
 # - trace-engine-cli insights <file> [--category <lcp|inp|cls|render-blocking|third-parties>] [--navigation <id>]
 # - trace-engine-cli tasks <file> [--min-duration <ms>] [--tree <bottom-up|top-down>] [--url-only] [--top <n>]
 # - trace-engine-cli find <file> [--function <name>] [--url <pattern>] [--time-range <start,end>]
@@ -544,6 +555,25 @@ select a renderer, including one for an out-of-process iframe.
 
 ```bash
 trace-engine-cli threads trace.json.gz
+```
+
+---
+
+### 15. `report`
+
+Run selected analyses from one trace parse. Each section uses its standalone
+command's defaults.
+
+| Option | Description |
+| --- | --- |
+| `--sections <list>` | Comma-separated section names. Defaults to `overview,tasks,shifts,network`. Use `report --help` to list the available sections. |
+| `--time-range <range>` | Shared time window. Each section interprets it as its standalone command does. |
+| `--thread <PID:TID>` | Renderer thread for `overview`, `tasks`, and `profile`. |
+| `--strip-query` | Remove query strings from URLs in the `network` section. |
+
+```bash
+trace-engine-cli report trace.json.gz
+trace-engine-cli report trace.json.gz --sections overview,insights,tasks --format md
 ```
 
 ---
