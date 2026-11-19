@@ -45,7 +45,7 @@ export function extractNetwork(
   const slowest = options?.slowest ?? 20;
   const initiatorTarget = options?.initiatorChain;
   const timeRange = options?.timeRange;
-  const displayUrl = (url: string) => options?.stripQuery ? stripUrlQuery(url) : url;
+  const displayUrl = (url: string) => (options?.stripQuery ? stripUrlQuery(url) : url);
 
   const rawRequests = parsedTrace.data.NetworkRequests?.byTime || [];
   const result: NetworkResult = {

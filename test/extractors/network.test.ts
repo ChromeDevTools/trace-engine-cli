@@ -116,13 +116,15 @@ describe('Network Extractor', () => {
   });
 
   test('strips queries in the request list and each initiator hop after matching', async (t) => {
-    const original = await readFile(path.resolve(import.meta.dirname, '../fixtures/navigation-cwv-trace.json'), 'utf8');
+    const source = path.resolve(import.meta.dirname, '../fixtures/navigation-cwv-trace.json');
+    const original = await readFile(source, 'utf8');
     const dir = await mkdtemp(path.join(os.tmpdir(), 'trace-cli-'));
     t.after(() => rm(dir, { recursive: true, force: true }));
     const fixture = path.join(dir, 'query-strings.json');
-    await writeFile(fixture, original
+    const withQueries = original
       .replaceAll('https://example.com/font.woff2', 'https://example.com/font.woff2?token=font')
-      .replaceAll('https://example.com/styles.css', 'https://example.com/styles.css?token=css'));
+      .replaceAll('https://example.com/styles.css', 'https://example.com/styles.css?token=css');
+    await writeFile(fixture, withQueries);
     const loaded = await loadTraceFromFile(fixture);
 
     const result = extractNetwork(loaded, { initiatorChain: 'token=font', stripQuery: true });
