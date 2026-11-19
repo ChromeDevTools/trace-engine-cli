@@ -72,21 +72,12 @@ If your agent environment supports on-demand skills (such as `.gemini/skills/chr
 ````markdown
 ---
 name: chrome-trace-analysis
-description: Record or troubleshoot Chrome performance traces and analyze saved .json or .json.gz traces with trace-engine-cli.
+description: Inspect and query saved Chrome/DevTools performance traces and test fixtures (.json, .json.gz) with trace-engine-cli. Use when analyzing trace events, CPU activity, Web Vitals, or diagnostic insights, or investigating missing capture data.
 ---
 
 # Chrome & Chromium DevTools Trace Analysis
 
 Use `trace-engine-cli` to inspect, profile, and diagnose performance recordings captured by the Chrome/Chromium DevTools Performance panel (`.json`, `.json.gz`).
-
----
-
-## Capture a trace
-
-- In the DevTools Performance panel, record the page activity and save the trace. Leave JavaScript samples enabled when investigating functions.
-- With CDP, send `Tracing.start` on a session attached to the page target. Include `loading` for layout shifts and `disabled-by-default-v8.cpu_profiler` for sampled JavaScript stacks.
-
-If the CLI reports missing page frames, recapture from the page target. Use `trace-engine-cli scan <file>` if you only have the existing recording and need to search its raw events.
 
 ---
 
@@ -235,6 +226,14 @@ trace-engine-cli scan fixtures/traces/ --cat devtools.timeline --phase X
 2. Inspect navigations and insight set IDs: `trace-engine-cli navigations <fixture>`
 3. Inspect relevant subsystem: `trace-engine-cli shifts <fixture> --events`, `trace-engine-cli network <fixture>`, or `trace-engine-cli insights <fixture> --category <category>`
 4. Inspect raw event payloads: `trace-engine-cli events <fixture> --name <EventName> --fields <fieldPaths>`
+
+---
+
+## 5. Capture Caveats
+
+- **Missing page frames**. Browser-target CDP recordings can omit frame metadata. Record and save a trace from the DevTools Performance panel, or send `Tracing.start` on a CDP session attached to the page target. Use `trace-engine-cli scan <file>` to search raw events in an existing recording.
+- **Missing layout-shift data**. Include the `loading` category in CDP recordings for CLS analysis.
+- **Missing JavaScript samples**. Leave JavaScript sampling enabled in DevTools or include `disabled-by-default-v8.cpu_profiler` in CDP recordings for sampled call stacks.
 ````
 
 </details>
