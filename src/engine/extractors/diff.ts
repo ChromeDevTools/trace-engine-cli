@@ -14,11 +14,12 @@
 
 import type { TimeRange } from '../../utils/filter.js';
 import { round } from '../../utils/units.js';
-import { getMainRendererThread } from '../helpers.js';
+import { getRendererThread, rendererCpuFilter } from '../helpers.js';
 import type { LoadedTrace } from '../loader.js';
 import type { DiffEntryItem, DiffResult } from '../types.js';
 
 export interface ExtractDiffOptions {
+  threadId?: string;
   windowA: TimeRange;
   windowB: TimeRange;
   top?: number;
@@ -39,6 +40,7 @@ export function extractDiff(loadedTrace: LoadedTrace, options: ExtractDiffOption
   const topCount = options.top ?? 20;
 
   const result: DiffResult = {
+    threadId: options.threadId,
     windowA: {
       startMs: windowA.startMs,
       endMs: windowA.endMs,
@@ -52,7 +54,7 @@ export function extractDiff(loadedTrace: LoadedTrace, options: ExtractDiffOption
     entries: [],
   };
 
-  const mainThread = getMainRendererThread(parsedTrace.data);
+  const mainThread = getRendererThread(parsedTrace.data, options?.threadId);
   if (!mainThread?.entries?.length) {
     return result;
   }
@@ -64,7 +66,7 @@ export function extractDiff(loadedTrace: LoadedTrace, options: ExtractDiffOption
   } {
     const bottomUp = new engine.Extras.TraceTree.BottomUpRootNode(mainThreadEntries, {
       textFilter: { accept: () => true },
-      filters: [],
+      filters: [rendererCpuFilter(loadedTrace)],
       startTime: engine.Types.Timing.Milli(range.startMs),
       endTime: engine.Types.Timing.Milli(range.endMs),
     });

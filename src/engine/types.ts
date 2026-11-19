@@ -22,6 +22,7 @@ export type CwvRating = 'good' | 'needs-improvement' | 'poor';
  * All duration and timestamp properties are normalized to milliseconds (ms).
  */
 export interface OverviewResult {
+  threadId?: string;
   bounds: {
     minMs: number;
     maxMs: number;
@@ -130,6 +131,7 @@ export interface InsightsResult {
  */
 export interface TaskItem {
   startTimeMs: number;
+  callPath?: string[];
   durationMs: number;
   selfTimeMs: number;
   functionName: string;
@@ -142,8 +144,22 @@ export interface TaskItem {
  * Aggregated main thread task execution details.
  */
 export interface TasksResult {
+  threadId?: string;
+  warnings?: string[];
   mode: 'list' | 'top-down' | 'bottom-up';
   tasks: TaskItem[];
+}
+
+export interface ThreadItem {
+  id: string;
+  name: string | null;
+  frameUrls: string[];
+  isDefault: boolean;
+  hasCpuSamples: boolean;
+}
+
+export interface ThreadsResult {
+  threads: ThreadItem[];
 }
 
 /**
@@ -263,6 +279,7 @@ export interface ShiftsResult {
  * Individual invocation instance of a searched function.
  */
 export interface FindCallInstance {
+  functionName?: string;
   timestampMs: number;
   durationMs: number;
   url?: string;
@@ -284,7 +301,9 @@ export interface FindIntervalItem {
  * Result of searching for a specific function's executions across a trace.
  */
 export interface FindResult {
-  functionQuery: string;
+  threadId?: string;
+  functionQuery?: string;
+  urlQuery?: string;
   timeRange?: { startMs: number; endMs: number };
   totalCalls: number;
   totalDurationMs: number;
@@ -304,6 +323,7 @@ export interface ProfileBucketItem {
   totalActiveMs: number;
   topFunctions: Array<{
     name: string;
+    url?: string;
     selfTimeMs: number;
     selfTimePct: number;
   }>;
@@ -313,6 +333,8 @@ export interface ProfileBucketItem {
  * Time-bucketed CPU profiling result.
  */
 export interface ProfileResult {
+  threadId?: string;
+  warnings?: string[];
   timeRange: { startMs: number; endMs: number };
   bucketSizeMs: number;
   buckets: ProfileBucketItem[];
@@ -335,6 +357,7 @@ export interface DiffEntryItem {
  * Differential profile result comparing two trace intervals.
  */
 export interface DiffResult {
+  threadId?: string;
   windowA: { startMs: number; endMs: number; durationMs: number };
   windowB: { startMs: number; endMs: number; durationMs: number };
   entries: DiffEntryItem[];

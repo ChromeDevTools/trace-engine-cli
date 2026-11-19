@@ -100,6 +100,49 @@ describe('CLI Dispatcher', () => {
     assert.ok(output.includes('totalCalls: 1'));
   });
 
+  test('lists renderer threads in Markdown and JSON', async () => {
+    const fixture = path.resolve(import.meta.dirname, 'fixtures/navigation-cwv-trace.json');
+    const args = ['node', 'trace-engine-cli', 'threads', fixture];
+    const threads = await captureCliOutput([...args, '--format', 'md']);
+    assert.match(threads, /100:1.*CrRendererMain/);
+    const json = JSON.parse(await captureCliOutput([...args, '--format', 'json']));
+    assert.equal(json.threads[0].id, '100:1');
+    assert.equal(json.threads[0].name, 'CrRendererMain');
+  });
+
+  test('finds named calls by URL on the chosen renderer thread', async () => {
+    const fixture = path.resolve(import.meta.dirname, 'fixtures/navigation-cwv-trace.json');
+    const cli = ['node', 'trace-engine-cli'];
+    const args = [...cli, 'find', fixture, '--thread', '100:1', '--url', 'app.js'];
+    assert.match(await captureCliOutput(args), /bootApp/);
+    assert.match(await captureCliOutput([...args, '--function', 'missing']), /totalCalls: 0/);
+    await assert.rejects(
+      () => captureCliOutput([...args.slice(0, 4), '--thread', '999:1', '--url', 'app.js']),
+      /Unknown renderer thread.*threads <file>/,
+    );
+  });
+
+  test('rejects non-positive result limits and bucket sizes', async () => {
+    const fixture = path.resolve(import.meta.dirname, 'fixtures/basic-trace.json');
+    const args = ['node', 'trace-engine-cli'];
+    await assert.rejects(
+      () => captureCliOutput([...args, 'tasks', fixture, '--top', '-5']),
+      /positive integers/,
+    );
+    await assert.rejects(
+      () => captureCliOutput([...args, 'profile', fixture, '--bucket', '0']),
+      /--bucket must be at least/,
+    );
+  });
+
+  test('requires a function or URL for find', async () => {
+    const fixture = path.resolve(import.meta.dirname, 'fixtures/basic-trace.json');
+    await assert.rejects(
+      () => captureCliOutput(['node', 'trace-engine-cli', 'find', fixture]),
+      /Specify --function or --url/,
+    );
+  });
+
   test('runs profile subcommand with relative range and bucket units', async () => {
     const fixturePath = path.resolve(import.meta.dirname, 'fixtures/basic-trace.json');
     const output = await captureCliOutput([

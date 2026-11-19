@@ -13,6 +13,7 @@
 // limitations under the License.
 
 import type { LoadedTrace, ParsedTrace } from './loader.js';
+import type { ThreadItem } from './types.js';
 
 type MapValue<T> = T extends Map<unknown, infer V> ? V : never;
 type RendererProcess = MapValue<NonNullable<ParsedTrace['data']['Renderer']>['processes']>;
@@ -51,6 +52,51 @@ export function getMainRendererThread(data: ParsedTrace['data']): RendererThread
   }
 
   return null;
+}
+
+export function getRendererThread(
+  data: ParsedTrace['data'],
+  threadId?: string,
+): RendererThread | null {
+  if (threadId === undefined) return getMainRendererThread(data);
+
+  for (const [pid, process] of data.Renderer?.processes ?? []) {
+    for (const [tid, thread] of process.threads) {
+      if (threadId === `${pid}:${tid}` && thread.entries.length > 0) return thread;
+    }
+  }
+  throw new Error(
+    `Unknown renderer thread "${threadId}". Use trace-engine-cli threads <file> to list PID:TID values.`,
+  );
+}
+
+export function listRendererThreads(data: ParsedTrace['data']): ThreadItem[] {
+  const threads: ThreadItem[] = [];
+  const defaultThread = getMainRendererThread(data);
+  for (const [pid, process] of data.Renderer?.processes ?? []) {
+    const frames = [...(data.Meta.frameByProcessId.get(pid)?.values() ?? [])];
+    const frameUrls = [...new Set(frames.map((frame) => frame.url).filter(Boolean))];
+    for (const [tid, thread] of process.threads) {
+      if (!thread.entries.length) continue;
+      threads.push({
+        id: `${pid}:${tid}`,
+        name: thread.name,
+        frameUrls,
+        isDefault: thread === defaultThread,
+        hasCpuSamples: thread.profileCalls.length > 0,
+      });
+    }
+  }
+  return threads;
+}
+
+export function rendererCpuFilter({ engine, parsedTrace }: LoadedTrace) {
+  const entryToNode = parsedTrace.data.Renderer?.entryToNode;
+  return {
+    // The renderer tree discards overlapping entries that cannot represent nested CPU work.
+    accept: (event: RendererThread['entries'][number]) =>
+      entryToNode?.has(event) === true && !engine.Types.Events.isPhaseAsync(event.ph),
+  };
 }
 
 export interface InsightEntryResult {

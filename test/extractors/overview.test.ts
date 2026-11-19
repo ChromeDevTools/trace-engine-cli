@@ -13,11 +13,13 @@
 // limitations under the License.
 
 import assert from 'node:assert/strict';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import os from 'node:os';
 import path from 'node:path';
 import test, { describe } from 'node:test';
 import { extractOverview } from '../../src/engine/extractors/overview.js';
 import { extractShifts } from '../../src/engine/extractors/shifts.js';
-import { loadTraceFromFile } from '../../src/engine/loader.js';
+import { loadTraceFromFile, parseTraceJson } from '../../src/engine/loader.js';
 
 describe('Overview Extractor', () => {
   test('extractOverview parses metadata and main thread stats for basic-trace', async () => {
@@ -80,6 +82,61 @@ describe('Overview Extractor', () => {
       overview.mainThreadBreakdown.systemMs +
       overview.mainThreadBreakdown.idleMs;
     assert.equal(activeAndIdleSum, overview.mainThreadBreakdown.totalMs);
+  });
+
+  test('keeps timeline categories stable when CPU samples add nested calls', async (t) => {
+    const fixture = path.resolve(import.meta.dirname, '../fixtures/navigation-cwv-trace.json');
+    const events = parseTraceJson(await readFile(fixture, 'utf8'));
+    const dir = await mkdtemp(path.join(os.tmpdir(), 'trace-cli-'));
+    t.after(() => rm(dir, { recursive: true, force: true }));
+    const sampled = path.join(dir, 'sampled.json');
+    const profile = {
+      cat: 'disabled-by-default-v8.cpu_profiler',
+      ph: 'P',
+      pid: 100,
+      tid: 1,
+      id: '0x1',
+    };
+    const profileStart = {
+      ...profile,
+      name: 'Profile',
+      ts: 1405000,
+      args: { data: { startTime: 1405000 } },
+    };
+    const profileChunk = {
+      ...profile,
+      name: 'ProfileChunk',
+      ts: 1465000,
+      args: {
+        data: {
+          cpuProfile: {
+            nodes: [
+              { id: 1, callFrame: { functionName: '(root)', scriptId: '0' } },
+              {
+                id: 2,
+                parent: 1,
+                callFrame: {
+                  functionName: 'sampledFunction',
+                  scriptId: '1',
+                  url: 'https://example.com/app.js',
+                  lineNumber: 43,
+                  columnNumber: 1,
+                },
+              },
+            ],
+            samples: [2, 2, 2],
+          },
+          timeDeltas: [10000, 20000, 30000],
+        },
+      },
+    };
+    await writeFile(sampled, JSON.stringify([...events, profileStart, profileChunk]));
+
+    const original = extractOverview(await loadTraceFromFile(fixture));
+    const withSamples = extractOverview(await loadTraceFromFile(sampled));
+    assert.ok(original.warnings.some((warning) => warning.includes('cpu_profiler')));
+    assert.ok(!withSamples.warnings.some((warning) => warning.includes('cpu_profiler')));
+    assert.deepEqual(withSamples.mainThreadBreakdown, original.mainThreadBreakdown);
   });
 
   test('extractOverview parses interaction-to-next-paint for interaction-trace', async () => {

@@ -27,7 +27,9 @@ import { scanTraces } from './engine/extractors/scan.js';
 import { extractScheduling } from './engine/extractors/scheduling.js';
 import { extractShifts } from './engine/extractors/shifts.js';
 import { extractTasks } from './engine/extractors/tasks.js';
+import { listRendererThreads } from './engine/helpers.js';
 import { loadTraceFromFile } from './engine/loader.js';
+import type { ThreadsResult } from './engine/types.js';
 import { type FormatOptions, formatResult } from './formatters/index.js';
 import { parseTimeRange, parseTimeValue, resolveTimeRange } from './utils/filter.js';
 
@@ -45,6 +47,18 @@ function parseCommaList(val?: unknown): string[] | undefined {
     .map((s) => s.trim())
     .filter(Boolean);
   return items.length > 0 ? items : undefined;
+}
+
+const THREAD_OPTION = {
+  type: 'string',
+  describe: 'Renderer thread as PID:TID. Use threads <file> to look up a frame URL.',
+} satisfies import('yargs').Options;
+
+function positiveInteger(value: number): number {
+  if (!Number.isSafeInteger(value) || value < 1) {
+    throw new Error('Result limits must be positive integers.');
+  }
+  return value;
 }
 
 export async function runCli(argv: string[]): Promise<void> {
@@ -77,7 +91,7 @@ export async function runCli(argv: string[]): Promise<void> {
       ['overview <file>', '$0 <file>'],
       'High-level trace metadata, Core Web Vitals, and main thread category breakdown (default command)',
       (y) =>
-        y.positional('file', {
+        y.option('thread', THREAD_OPTION).positional('file', {
           describe: 'Path to trace file (.json or .json.gz)',
           type: 'string',
           demandOption: true,
@@ -93,7 +107,7 @@ export async function runCli(argv: string[]): Promise<void> {
           loaded.parsedTrace.data.Meta.traceBounds,
           args.absoluteTimestamps as boolean,
         );
-        const result = extractOverview(loaded, { timeRange });
+        const result = extractOverview(loaded, { timeRange, threadId: args.thread });
         const isDefaultCmd = !args._.includes('overview');
         console.log(
           formatResult(result, {
@@ -102,6 +116,21 @@ export async function runCli(argv: string[]): Promise<void> {
             includeHint: isDefaultCmd,
           }),
         );
+      },
+    )
+    .command(
+      'threads <file>',
+      'List renderer threads, their frame URLs, and CPU sample availability',
+      (y) =>
+        y.positional('file', {
+          describe: 'Path to trace file (.json or .json.gz)',
+          type: 'string',
+          demandOption: true,
+        }),
+      async (args) => {
+        const loaded = await loadTraceFromFile(args.file, args.traceEngine);
+        const result: ThreadsResult = { threads: listRendererThreads(loaded.parsedTrace.data) };
+        console.log(formatResult(result, { format: args.format, type: 'threads' }));
       },
     )
     .command(
@@ -152,6 +181,7 @@ export async function runCli(argv: string[]): Promise<void> {
       'Long tasks, bottom-up and top-down TraceTree call aggregations',
       (y) =>
         y
+          .option('thread', THREAD_OPTION)
           .positional('file', {
             describe: 'Path to trace file (.json or .json.gz)',
             type: 'string',
@@ -168,9 +198,14 @@ export async function runCli(argv: string[]): Promise<void> {
             describe:
               "Generate aggregated call tree ('bottom-up' sorted by self-time, 'top-down' sorted by total duration)",
           })
+          .option('url-only', {
+            type: 'boolean',
+            describe: 'Only show rows with a source URL',
+          })
           .option('top', {
             alias: ['limit'],
             type: 'number',
+            coerce: positiveInteger,
             default: 20,
             describe: 'Limit output to top N tasks (default: 20)',
           }),
@@ -186,10 +221,12 @@ export async function runCli(argv: string[]): Promise<void> {
           args.absoluteTimestamps as boolean,
         );
         const result = extractTasks(loaded, {
+          urlOnly: args.urlOnly,
           minDurationMs: args.minDuration as number,
           tree: args.tree as 'bottom-up' | 'top-down' | undefined,
           top: args.top as number,
           timeRange,
+          threadId: args.thread,
         });
         console.log(
           formatResult(result, {
@@ -204,6 +241,7 @@ export async function runCli(argv: string[]): Promise<void> {
       'Search for function execution instances, call frequency, and starvation intervals',
       (y) =>
         y
+          .option('thread', THREAD_OPTION)
           .positional('file', {
             describe: 'Path to trace file (.json or .json.gz)',
             type: 'string',
@@ -212,12 +250,16 @@ export async function runCli(argv: string[]): Promise<void> {
           .option('function', {
             alias: ['fn', 'name'],
             type: 'string',
-            demandOption: true,
-            describe: 'Function name or pattern to search for',
+            describe: 'Function name substring to search for',
+          })
+          .option('url', {
+            type: 'string',
+            describe: 'Script URL substring to search for, optionally combined with --function',
           })
           .option('top', {
             alias: ['limit'],
             type: 'number',
+            coerce: positiveInteger,
             default: 50,
             describe: 'Maximum number of invocation entries to list (default: 50)',
           }),
@@ -233,8 +275,10 @@ export async function runCli(argv: string[]): Promise<void> {
           args.absoluteTimestamps as boolean,
         );
         const result = extractFind(loaded, {
-          functionName: args.function as string,
+          functionName: args.function,
+          url: args.url,
           timeRange,
+          threadId: args.thread,
           limit: args.top as number,
         });
         console.log(
@@ -250,6 +294,7 @@ export async function runCli(argv: string[]): Promise<void> {
       'Time-bucketed CPU profiling progression across discrete intervals',
       (y) =>
         y
+          .option('thread', THREAD_OPTION)
           .positional('file', {
             describe: 'Path to trace file (.json or .json.gz)',
             type: 'string',
@@ -263,6 +308,7 @@ export async function runCli(argv: string[]): Promise<void> {
           .option('top', {
             alias: ['limit'],
             type: 'number',
+            coerce: positiveInteger,
             default: 3,
             describe: 'Top N functions to include per time bucket (default: 3)',
           }),
@@ -277,9 +323,13 @@ export async function runCli(argv: string[]): Promise<void> {
           loaded.parsedTrace.data.Meta.traceBounds,
           args.absoluteTimestamps as boolean,
         );
-        const bucketMs = args.bucket ? parseTimeValue(String(args.bucket)) : undefined;
+        const bucketMs = args.bucket === undefined ? undefined : parseTimeValue(args.bucket);
+        if (bucketMs !== undefined && (!Number.isFinite(bucketMs) || bucketMs < 0.01)) {
+          throw new Error('--bucket must be at least 0.01ms.');
+        }
         const result = extractProfile(loaded, {
           timeRange,
+          threadId: args.thread,
           bucketMs,
           top: args.top as number,
         });
@@ -296,6 +346,7 @@ export async function runCli(argv: string[]): Promise<void> {
       'Differential CPU profiling comparing two time windows in the trace',
       (y) =>
         y
+          .option('thread', THREAD_OPTION)
           .positional('file', {
             describe: 'Path to trace file (.json or .json.gz)',
             type: 'string',
@@ -316,6 +367,7 @@ export async function runCli(argv: string[]): Promise<void> {
           .option('top', {
             alias: ['limit'],
             type: 'number',
+            coerce: positiveInteger,
             default: 20,
             describe: 'Maximum differential entries to return (default: 20)',
           }),
@@ -338,6 +390,7 @@ export async function runCli(argv: string[]): Promise<void> {
 
         const result = extractDiff(loaded, {
           windowA,
+          threadId: args.thread,
           windowB,
           top: args.top as number,
         });
@@ -396,6 +449,7 @@ export async function runCli(argv: string[]): Promise<void> {
           .option('slowest', {
             alias: ['top', 'limit'],
             type: 'number',
+            coerce: positiveInteger,
             default: 20,
             describe: 'Limit output to N slowest requests (default: 20)',
           })
@@ -530,6 +584,7 @@ export async function runCli(argv: string[]): Promise<void> {
           .option('top', {
             alias: ['limit'],
             type: 'number',
+            coerce: positiveInteger,
             default: 50,
             describe: 'Maximum number of matching events to return (default: 50)',
           }),
@@ -624,6 +679,7 @@ export async function runCli(argv: string[]): Promise<void> {
           .option('top', {
             alias: ['limit'],
             type: 'number',
+            coerce: positiveInteger,
             default: 50,
             describe: 'Maximum number of matched files to return (default: 50)',
           }),

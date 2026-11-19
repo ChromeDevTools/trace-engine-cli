@@ -13,10 +13,12 @@
 // limitations under the License.
 
 import assert from 'node:assert/strict';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import os from 'node:os';
 import path from 'node:path';
 import test, { describe } from 'node:test';
 import { extractTasks } from '../../src/engine/extractors/tasks.js';
-import { loadTraceFromFile } from '../../src/engine/loader.js';
+import { loadTraceFromFile, parseTraceJson } from '../../src/engine/loader.js';
 
 describe('Tasks Extractor', () => {
   test('extractTasks extracts top-level tasks above threshold', async () => {
@@ -89,10 +91,56 @@ describe('Tasks Extractor', () => {
     assert.equal(bottomUpResult.mode, 'bottom-up');
     assert.ok(bottomUpResult.tasks.length > 0);
     assert.equal(bottomUpResult.tasks[0].functionName, 'bootApp');
+    assert.equal(bottomUpResult.tasks[0].startTimeMs, 1405);
     assert.equal(bottomUpResult.tasks[0].selfTimeMs, 70);
     assert.equal(bottomUpResult.tasks[0].durationMs, 70);
     assert.equal(bottomUpResult.tasks[0].url, 'https://example.com/app.js');
     assert.equal(bottomUpResult.tasks[0].lineNumber, 42);
     assert.equal(bottomUpResult.tasks[0].columnNumber, 8);
+  });
+
+  test('shows nested calls in the top-down tree and applies URL filtering before the limit', async () => {
+    const fixture = path.resolve(import.meta.dirname, '../fixtures/navigation-cwv-trace.json');
+    const loaded = await loadTraceFromFile(fixture);
+    const topDown = extractTasks(loaded, { tree: 'top-down' });
+    const call = topDown.tasks.find((task) => task.functionName === 'bootApp');
+    assert.deepEqual(call?.callPath, ['RunTask', 'bootApp']);
+
+    const filtered = extractTasks(loaded, { tree: 'top-down', top: 1, urlOnly: true });
+    assert.equal(filtered.tasks[0]?.url, 'https://example.com/app.js');
+    assert.equal(filtered.tasks[0]?.functionName, 'bootApp');
+  });
+
+  test('preserves ranking ties and applies URL eligibility before the limit', async (t) => {
+    const fixture = path.resolve(import.meta.dirname, '../fixtures/navigation-cwv-trace.json');
+    const events = parseTraceJson(await readFile(fixture, 'utf8'));
+    const dir = await mkdtemp(path.join(os.tmpdir(), 'trace-cli-'));
+    t.after(() => rm(dir, { recursive: true, force: true }));
+    const file = path.join(dir, 'ranked-tasks.json');
+    const runTask = {
+      name: 'RunTask',
+      cat: 'disabled-by-default-devtools.timeline',
+      ph: 'X',
+      pid: 100,
+      tid: 1,
+    };
+    const taskEvents = [
+      { ...runTask, ts: 5500000, dur: 180000 },
+      { ...runTask, ts: 5800000, dur: 180001 },
+      { ...runTask, ts: 6100000, dur: 180002 },
+      { ...runTask, ts: 6400000, dur: 180003 },
+    ];
+    await writeFile(file, JSON.stringify([...events, ...taskEvents]));
+
+    const loaded = await loadTraceFromFile(file);
+    const longest = extractTasks(loaded, { top: 2 });
+    const startTimes = longest.tasks.map((task) => task.startTimeMs);
+    assert.deepEqual(startTimes, [5500, 5800]);
+
+    const withUrl = extractTasks(loaded, { top: 1, urlOnly: true });
+    assert.equal(withUrl.tasks[0]?.functionName, 'RunTask > bootApp');
+
+    const bottomUp = extractTasks(loaded, { tree: 'bottom-up', top: 1, urlOnly: true });
+    assert.equal(bottomUp.tasks[0]?.functionName, 'bootApp');
   });
 });
