@@ -90,32 +90,47 @@ describe('Overview Extractor', () => {
     const dir = await mkdtemp(path.join(os.tmpdir(), 'trace-cli-'));
     t.after(() => rm(dir, { recursive: true, force: true }));
     const sampled = path.join(dir, 'sampled.json');
-    const profile = { cat: 'disabled-by-default-v8.cpu_profiler', ph: 'P', pid: 100, tid: 1, id: '0x1' };
-    await writeFile(sampled, JSON.stringify([
-      ...events,
-      { ...profile, name: 'Profile', ts: 1405000, args: { data: { startTime: 1405000 } } },
-      {
-        ...profile,
-        name: 'ProfileChunk',
-        ts: 1465000,
-        args: { data: {
+    const profile = {
+      cat: 'disabled-by-default-v8.cpu_profiler',
+      ph: 'P',
+      pid: 100,
+      tid: 1,
+      id: '0x1',
+    };
+    const profileStart = {
+      ...profile,
+      name: 'Profile',
+      ts: 1405000,
+      args: { data: { startTime: 1405000 } },
+    };
+    const profileChunk = {
+      ...profile,
+      name: 'ProfileChunk',
+      ts: 1465000,
+      args: {
+        data: {
           cpuProfile: {
             nodes: [
               { id: 1, callFrame: { functionName: '(root)', scriptId: '0' } },
-              { id: 2, parent: 1, callFrame: {
-                functionName: 'sampledFunction',
-                scriptId: '1',
-                url: 'https://example.com/app.js',
-                lineNumber: 43,
-                columnNumber: 1,
-              } },
+              {
+                id: 2,
+                parent: 1,
+                callFrame: {
+                  functionName: 'sampledFunction',
+                  scriptId: '1',
+                  url: 'https://example.com/app.js',
+                  lineNumber: 43,
+                  columnNumber: 1,
+                },
+              },
             ],
             samples: [2, 2, 2],
           },
           timeDeltas: [10000, 20000, 30000],
-        } },
+        },
       },
-    ]));
+    };
+    await writeFile(sampled, JSON.stringify([...events, profileStart, profileChunk]));
 
     const original = extractOverview(await loadTraceFromFile(fixture));
     const withSamples = extractOverview(await loadTraceFromFile(sampled));

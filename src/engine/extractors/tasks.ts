@@ -62,7 +62,10 @@ export function extractTasks(loadedTrace: LoadedTrace, options?: ExtractTasksOpt
   function treeItem(node: TreeNode): TaskItem {
     const frame = traceTree.eventStackFrame(node.event);
     // Bottom-up nodes are created in event end order. A recursive call can end before its caller.
-    const firstTs = node.events.reduce<number>((min, event) => Math.min(min, event.ts), node.event.ts);
+    const firstTs = node.events.reduce<number>(
+      (min, event) => Math.min(min, event.ts),
+      node.event.ts,
+    );
     return {
       startTimeMs: round(microToMilli(firstTs)),
       durationMs: round(node.totalTime),
@@ -104,8 +107,9 @@ export function extractTasks(loadedTrace: LoadedTrace, options?: ExtractTasksOpt
     });
 
     // TraceTree computes descendants on demand. Expand only the most expensive paths.
-    const pending: Array<{ node: TreeNode; parents: string[] }> = [...topDown.children().values()]
-      .map((node) => ({ node, parents: [] }));
+    const pending: Array<{ node: TreeNode; parents: string[] }> = [
+      ...topDown.children().values(),
+    ].map((node) => ({ node, parents: [] }));
     while (pending.length && result.tasks.length < top) {
       pending.sort((a, b) => b.node.totalTime - a.node.totalTime);
       const next = pending.shift();
@@ -124,10 +128,14 @@ export function extractTasks(loadedTrace: LoadedTrace, options?: ExtractTasksOpt
   const candidateLimit = urlOnly ? Infinity : top;
 
   for (const entry of mainThread.entries) {
-    if (!entry.dur || (entry.name !== 'RunTask' && !engine.Helpers.Trace.isTopLevelEvent(entry))) continue;
+    if (!entry.dur || (entry.name !== 'RunTask' && !engine.Helpers.Trace.isTopLevelEvent(entry))) {
+      continue;
+    }
     const durationMs = microToMilli(entry.dur);
     const startTimeMs = microToMilli(entry.ts);
-    if (durationMs < minDurationMs || !isEventInBounds(startTimeMs, durationMs, timeRange)) continue;
+    if (durationMs < minDurationMs || !isEventInBounds(startTimeMs, durationMs, timeRange)) {
+      continue;
+    }
 
     candidates.push({ entry, score: round(durationMs) });
     if (candidates.length === candidateLimit * 2) rankAndLimit(candidates, candidateLimit);

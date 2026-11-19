@@ -15,8 +15,8 @@
 import type { TimeRange } from '../../utils/filter.js';
 import { microToMilli, round } from '../../utils/units.js';
 import {
-  getRendererThread,
   getPrimaryInsightSet,
+  getRendererThread,
   MISSING_CPU_SAMPLES,
   PAGE_TRACE_CAPTURE_HINT,
   shouldWarnAboutLayoutShiftCapture,
@@ -185,9 +185,13 @@ export function extractOverview(
     const bottomUp = new engine.Extras.TraceTree.BottomUpRootNode(mainThread.entries, {
       textFilter: { accept: () => true },
       // Timeline categories use instrumented events so optional samples cannot change attribution.
-      filters: [{ accept: (event) =>
-        !engine.Types.Events.isProfileCall(event) && !engine.Types.Events.isPhaseAsync(event.ph),
-      }],
+      filters: [
+        {
+          accept: (event) =>
+            !engine.Types.Events.isProfileCall(event) &&
+            !engine.Types.Events.isPhaseAsync(event.ph),
+        },
+      ],
       startTime: engine.Types.Timing.Milli(minMs),
       endTime: engine.Types.Timing.Milli(maxMs),
     });

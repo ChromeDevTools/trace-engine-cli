@@ -121,15 +121,20 @@ export async function runCli(argv: string[]): Promise<void> {
     .command(
       'threads <file>',
       'List renderer threads, their frame URLs, and CPU sample availability',
-      (y) => y.positional('file', {
-        describe: 'Path to trace file (.json or .json.gz)',
-        type: 'string',
-        demandOption: true,
-      }),
+      (y) =>
+        y.positional('file', {
+          describe: 'Path to trace file (.json or .json.gz)',
+          type: 'string',
+          demandOption: true,
+        }),
       async (args) => {
         const loaded = await loadTraceFromFile(args.file, args.traceEngine);
         const result = { threads: listRendererThreads(loaded.parsedTrace.data) };
-        console.log(args.format === 'md' ? formatThreadsMarkdown(result) : formatResult(result, { format: 'toon' }));
+        console.log(
+          args.format === 'md'
+            ? formatThreadsMarkdown(result)
+            : formatResult(result, { format: 'toon' }),
+        );
       },
     )
     .command(

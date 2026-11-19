@@ -61,7 +61,11 @@ export function formatOverviewMarkdown(overview: OverviewResult): string {
   );
   lines.push('');
 
-  lines.push(overview.threadId ? `## Thread ${overview.threadId} Time Breakdown` : '## Main Thread Time Breakdown');
+  lines.push(
+    overview.threadId
+      ? `## Thread ${overview.threadId} Time Breakdown`
+      : '## Main Thread Time Breakdown',
+  );
   lines.push('');
   lines.push('| Category | Duration (ms) | Share |');
   lines.push('|---|---|---|');
@@ -317,7 +321,9 @@ export function formatShiftsMarkdown(shifts: ShiftsResult): string {
 }
 
 export function formatFindMarkdown(findResult: FindResult): string {
-  const heading = findResult.functionQuery ? `# Function Execution: \`${findResult.functionQuery}\`` : '# Function Execution';
+  const heading = findResult.functionQuery
+    ? `# Function Execution: \`${findResult.functionQuery}\``
+    : '# Function Execution';
   const lines: string[] = [heading, ''];
   if (findResult.urlQuery) lines.push(`- **URL**: \`${findResult.urlQuery}\``);
   if (findResult.threadId) lines.push(`- **Renderer thread**: \`${findResult.threadId}\``);
@@ -352,7 +358,9 @@ export function formatFindMarkdown(findResult: FindResult): string {
     lines.push('|---|---|---|---|');
     for (const c of findResult.calls) {
       const loc = c.url ? `${c.url}${c.lineNumber !== undefined ? `:${c.lineNumber}` : ''}` : '-';
-      lines.push(`| ${formatMs(c.timestampMs)} | ${formatMs(c.durationMs)} | ${c.functionName ?? '-'} | \`${loc}\` |`);
+      lines.push(
+        `| ${formatMs(c.timestampMs)} | ${formatMs(c.durationMs)} | ${c.functionName ?? '-'} | \`${loc}\` |`,
+      );
     }
     lines.push('');
   }
@@ -377,7 +385,9 @@ export function formatProfileMarkdown(profileResult: ProfileResult): string {
   lines.push('| Time Bucket | Active CPU (ms) | Top Functions (% of slice) |');
   lines.push('|---|---|---|');
   for (const b of profileResult.buckets) {
-    const topSummary = b.topFunctions.map((f) => `${f.name} (${f.selfTimePct}%)${f.url ? ` \`${f.url}\`` : ''}`).join(', ');
+    const topSummary = b.topFunctions
+      .map((f) => `${f.name} (${f.selfTimePct}%)${f.url ? ` \`${f.url}\`` : ''}`)
+      .join(', ');
     lines.push(
       `| ${formatMs(b.startMs)} - ${formatMs(b.endMs)} | ${formatMs(b.totalActiveMs)} | ${topSummary || 'None (Idle)'} |`,
     );
@@ -573,9 +583,16 @@ export function formatScanMarkdown(result: ScanResult): string {
 }
 
 export function formatThreadsMarkdown({ threads }: { threads: ThreadItem[] }): string {
-  const lines = ['# Renderer Threads', '', '| PID:TID | Thread | Frame URLs | Default | CPU samples |', '|---|---|---|---|---|'];
+  const lines = [
+    '# Renderer Threads',
+    '',
+    '| PID:TID | Thread | Frame URLs | Default | CPU samples |',
+    '|---|---|---|---|---|',
+  ];
   for (const thread of threads) {
-    lines.push(`| ${thread.id} | ${thread.name ?? '-'} | ${thread.frameUrls.join(', ') || '-'} | ${thread.isDefault ? 'Yes' : 'No'} | ${thread.hasCpuSamples ? 'Yes' : 'No'} |`);
+    lines.push(
+      `| ${thread.id} | ${thread.name ?? '-'} | ${thread.frameUrls.join(', ') || '-'} | ${thread.isDefault ? 'Yes' : 'No'} | ${thread.hasCpuSamples ? 'Yes' : 'No'} |`,
+    );
   }
   return lines.join('\n');
 }

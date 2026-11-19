@@ -54,7 +54,10 @@ export function getMainRendererThread(data: ParsedTrace['data']): RendererThread
   return null;
 }
 
-export function getRendererThread(data: ParsedTrace['data'], threadId?: string): RendererThread | null {
+export function getRendererThread(
+  data: ParsedTrace['data'],
+  threadId?: string,
+): RendererThread | null {
   if (threadId === undefined) return getMainRendererThread(data);
 
   for (const [pid, process] of data.Renderer?.processes ?? []) {
@@ -62,7 +65,9 @@ export function getRendererThread(data: ParsedTrace['data'], threadId?: string):
       if (threadId === `${pid}:${tid}` && thread.entries.length > 0) return thread;
     }
   }
-  throw new Error(`Unknown renderer thread "${threadId}". Use trace-engine-cli threads <file> to list PID:TID values.`);
+  throw new Error(
+    `Unknown renderer thread "${threadId}". Use trace-engine-cli threads <file> to list PID:TID values.`,
+  );
 }
 
 export function listRendererThreads(data: ParsedTrace['data']): ThreadItem[] {

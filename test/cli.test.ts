@@ -102,10 +102,11 @@ describe('CLI Dispatcher', () => {
 
   test('finds named calls by URL on the chosen renderer thread', async () => {
     const fixture = path.resolve(import.meta.dirname, 'fixtures/navigation-cwv-trace.json');
-    const threads = await captureCliOutput(['node', 'trace-engine-cli', 'threads', fixture, '--format', 'md']);
+    const cli = ['node', 'trace-engine-cli'];
+    const threads = await captureCliOutput([...cli, 'threads', fixture, '--format', 'md']);
     assert.match(threads, /100:1.*CrRendererMain/);
 
-    const args = ['node', 'trace-engine-cli', 'find', fixture, '--thread', '100:1', '--url', 'app.js'];
+    const args = [...cli, 'find', fixture, '--thread', '100:1', '--url', 'app.js'];
     assert.match(await captureCliOutput(args), /bootApp/);
     assert.match(await captureCliOutput([...args, '--function', 'missing']), /totalCalls: 0/);
     await assert.rejects(
