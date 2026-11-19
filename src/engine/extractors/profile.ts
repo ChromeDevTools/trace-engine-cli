@@ -43,7 +43,12 @@ export function extractProfile(
   const endMs = options?.timeRange ? options.timeRange.endMs : round(microToMilli(traceBounds.max));
 
   const totalRangeMs = Math.max(1, endMs - startMs);
-  const bucketSizeMs = options?.bucketMs ?? Math.max(10, round(totalRangeMs / 20));
+  if (options?.bucketMs !== undefined && options.bucketMs < MIN_BUCKET_MS) {
+    throw new Error(
+      `Bucket size ${options.bucketMs}ms is below the minimum of ${MIN_BUCKET_MS}ms.`,
+    );
+  }
+  const bucketSizeMs = round(options?.bucketMs ?? Math.max(10, totalRangeMs / 20));
   const topCount = options?.top ?? 3;
 
   const rangeMs = endMs - startMs;

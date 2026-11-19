@@ -52,9 +52,19 @@ function parseCommaList(val?: unknown): string[] | undefined {
   return items.length > 0 ? items : undefined;
 }
 
+function toNumber(value: unknown): number {
+  if (typeof value === 'number') {
+    return value;
+  }
+  if (typeof value === 'string' && value.trim() !== '') {
+    return Number(value);
+  }
+  return Number.NaN;
+}
+
 function positiveInteger(flag: string): (value: unknown) => number {
   return (value) => {
-    const num = typeof value === 'number' ? value : Number(value);
+    const num = toNumber(value);
     if (!Number.isInteger(num) || num < 1) {
       throw new Error(`--${flag} must be a positive integer. Received: ${value}`);
     }
@@ -64,7 +74,7 @@ function positiveInteger(flag: string): (value: unknown) => number {
 
 function nonNegativeNumber(flag: string): (value: unknown) => number {
   return (value) => {
-    const num = typeof value === 'number' ? value : Number(value);
+    const num = toNumber(value);
     if (!Number.isFinite(num) || num < 0) {
       throw new Error(`--${flag} must be a number >= 0. Received: ${value}`);
     }
@@ -94,20 +104,28 @@ const ABSOLUTE_TIMESTAMPS_OPTION = {
     'Treat time ranges as raw absolute trace timestamps rather than relative to trace start (default: false)',
 } as const;
 
-type CliArgs = Record<string, unknown>;
+interface TraceArgs {
+  file: string;
+  traceEngine?: string;
+}
 
-function loadTrace(args: CliArgs): Promise<LoadedTrace> {
-  return loadTraceFromFile(args.file as string, args.traceEngine as string | undefined);
+interface TimeRangeArgs extends TraceArgs {
+  timeRange?: string;
+  absoluteTimestamps: boolean;
+}
+
+function loadTrace(args: TraceArgs): Promise<LoadedTrace> {
+  return loadTraceFromFile(args.file, args.traceEngine);
 }
 
 async function loadTraceWithTimeRange(
-  args: CliArgs,
+  args: TimeRangeArgs,
 ): Promise<{ loaded: LoadedTrace; timeRange: TimeRange | undefined }> {
   const loaded = await loadTrace(args);
   const timeRange = resolveTimeRange(
-    parseTimeRange(args.timeRange as string | undefined),
+    parseTimeRange(args.timeRange),
     loaded.parsedTrace.data.Meta.traceBounds,
-    args.absoluteTimestamps as boolean,
+    args.absoluteTimestamps,
   );
   return { loaded, timeRange };
 }

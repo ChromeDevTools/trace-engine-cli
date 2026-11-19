@@ -523,6 +523,41 @@ describe('CLI option validation', () => {
     );
   });
 
+  test('rejects empty --min-duration on tasks', async () => {
+    await assert.rejects(
+      captureCliOutput(['node', 'trace-engine-cli', 'tasks', tracePath, '--min-duration', '']),
+      /--min-duration must be a number >= 0/,
+    );
+  });
+
+  test('rejects whitespace --min-duration on tasks', async () => {
+    await assert.rejects(
+      captureCliOutput(['node', 'trace-engine-cli', 'tasks', tracePath, '--min-duration', '   ']),
+      /--min-duration must be a number >= 0/,
+    );
+  });
+
+  test('rejects --no-min-duration on tasks', async () => {
+    await assert.rejects(
+      captureCliOutput(['node', 'trace-engine-cli', 'tasks', tracePath, '--no-min-duration']),
+      /--min-duration must be a number >= 0\. Received: false/,
+    );
+  });
+
+  test('rejects empty --top on tasks', async () => {
+    await assert.rejects(
+      captureCliOutput(['node', 'trace-engine-cli', 'tasks', tracePath, '--top', '']),
+      /--top must be a positive integer/,
+    );
+  });
+
+  test('rejects --no-top on tasks', async () => {
+    await assert.rejects(
+      captureCliOutput(['node', 'trace-engine-cli', 'tasks', tracePath, '--no-top']),
+      /--top must be a positive integer\. Received: false/,
+    );
+  });
+
   test('accepts --min-duration 0 on tasks', async () => {
     const output = await captureCliOutput([
       'node',
