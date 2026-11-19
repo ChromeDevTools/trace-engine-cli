@@ -13,6 +13,8 @@
 // limitations under the License.
 
 import assert from 'node:assert/strict';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import os from 'node:os';
 import path from 'node:path';
 import test, { describe } from 'node:test';
 import { extractNetwork } from '../../src/engine/extractors/network.js';
@@ -111,5 +113,26 @@ describe('Network Extractor', () => {
     assert.equal(result.initiatorChain[2].url, 'https://example.com/app');
     assert.equal(result.initiatorChain[2].initiatorUrl, undefined);
     assert.equal(result.initiatorChain[2].type, 'text/html');
+  });
+
+  test('strips queries in the request list and each initiator hop after matching', async (t) => {
+    const source = path.resolve(import.meta.dirname, '../fixtures/navigation-cwv-trace.json');
+    const original = await readFile(source, 'utf8');
+    const dir = await mkdtemp(path.join(os.tmpdir(), 'trace-cli-'));
+    t.after(() => rm(dir, { recursive: true, force: true }));
+    const fixture = path.join(dir, 'query-strings.json');
+    const withQueries = original
+      .replaceAll('https://example.com/font.woff2', 'https://example.com/font.woff2?token=font')
+      .replaceAll('https://example.com/styles.css', 'https://example.com/styles.css?token=css');
+    await writeFile(fixture, withQueries);
+    const loaded = await loadTraceFromFile(fixture);
+
+    const result = extractNetwork(loaded, { initiatorChain: 'token=font', stripQuery: true });
+    assert.equal(result.initiatorChain?.length, 3);
+    assert.equal(result.initiatorChain[0].url, 'https://example.com/font.woff2');
+    assert.equal(result.initiatorChain[0].initiatorUrl, 'https://example.com/styles.css');
+    assert.ok(result.requests.some((request) => request.url === 'https://example.com/font.woff2'));
+    assert.doesNotMatch(JSON.stringify(result), /token=/);
+    assert.match(JSON.stringify(extractNetwork(loaded)), /token=font/);
   });
 });
