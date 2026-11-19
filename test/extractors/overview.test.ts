@@ -16,6 +16,7 @@ import assert from 'node:assert/strict';
 import path from 'node:path';
 import test, { describe } from 'node:test';
 import { extractOverview } from '../../src/engine/extractors/overview.js';
+import { extractShifts } from '../../src/engine/extractors/shifts.js';
 import { loadTraceFromFile } from '../../src/engine/loader.js';
 
 describe('Overview Extractor', () => {
@@ -24,6 +25,9 @@ describe('Overview Extractor', () => {
     const loaded = await loadTraceFromFile(fixturePath);
     const overview = extractOverview(loaded);
 
+    assert.equal(overview.coreWebVitals.cls, null);
+    assert.ok(overview.warnings.some((warning) => warning.includes('loading category')));
+    assert.ok(overview.warnings.some((warning) => warning.includes('cpu_profiler')));
     assert.equal(overview.bounds.minMs, 1000);
     assert.equal(overview.bounds.maxMs, 1160);
     assert.equal(overview.bounds.durationMs, 160);
@@ -100,5 +104,19 @@ describe('Overview Extractor', () => {
       rating: 'needs-improvement',
       worstClusterScore: 0.15,
     });
+  });
+
+  test('reports zero CLS without capture warnings for a recording without navigation', async () => {
+    const fixture = path.resolve(import.meta.dirname, '../fixtures/wrapped-trace.json');
+    const loaded = await loadTraceFromFile(fixture);
+
+    const overview = extractOverview(loaded);
+    assert.equal(overview.navigationStartMs, null);
+    assert.equal(overview.coreWebVitals.cls?.value, 0);
+    assert.doesNotMatch(overview.warnings.join(' '), /loading category/);
+
+    const shifts = extractShifts(loaded);
+    assert.deepEqual(shifts.clusters, []);
+    assert.equal(shifts.warnings, undefined);
   });
 });

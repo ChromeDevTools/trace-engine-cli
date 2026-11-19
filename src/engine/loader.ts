@@ -16,6 +16,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import zlib from 'node:zlib';
 import { loadTraceEngine, type TraceEngine } from './adapter.js';
+import { PAGE_TRACE_CAPTURE_HINT } from './helpers.js';
 
 export type ParsedTrace = NonNullable<
   ReturnType<InstanceType<TraceEngine['TraceModel']['Model']>['parsedTrace']>
@@ -149,6 +150,14 @@ export async function loadTraceFromFile(
     };
 
     await model.parse(rawEvents as Parameters<typeof model.parse>[0]);
+  } catch (error) {
+    if (error instanceof Error && error.message === 'No frames found in trace data') {
+      throw new Error(
+        `No frames found in trace data. ${PAGE_TRACE_CAPTURE_HINT} Use scan to search raw events in this file.`,
+        { cause: error },
+      );
+    }
+    throw error;
   } finally {
     console.warn = origWarn;
     console.error = origError;

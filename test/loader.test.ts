@@ -13,6 +13,8 @@
 // limitations under the License.
 
 import assert from 'node:assert/strict';
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import os from 'node:os';
 import path from 'node:path';
 import test, { describe } from 'node:test';
 import { isGzipBuffer, loadTraceFromFile, parseTraceJson } from '../src/engine/loader.js';
@@ -73,6 +75,24 @@ describe('Trace Loader', () => {
 
     assert.ok(loaded.parsedTrace);
     assert.equal(loaded.parsedTrace.data.Meta.mainFrameURL, 'https://example.com/wrapped');
+  });
+
+  test('loadTraceFromFile tells users how to record a trace when frame metadata is missing', async (t) => {
+    const dir = await mkdtemp(path.join(os.tmpdir(), 'trace-cli-'));
+    t.after(() => rm(dir, { recursive: true, force: true }));
+    const file = path.join(dir, 'browser.json');
+    const tracingStarted = {
+      name: 'TracingStartedInBrowser',
+      cat: 'disabled-by-default-devtools.timeline',
+      ph: 'I',
+      pid: 1,
+      tid: 1,
+      ts: 1000,
+      args: {},
+    };
+    await writeFile(file, JSON.stringify([tracingStarted]));
+
+    await assert.rejects(() => loadTraceFromFile(file), { message: /page target session.*scan/ });
   });
 
   test('loadTraceFromFile throws when file is missing', async () => {

@@ -14,7 +14,14 @@
 
 import type { TimeRange } from '../../utils/filter.js';
 import { microToMilli, round } from '../../utils/units.js';
-import { getMainRendererThread, getPrimaryInsightSet } from '../helpers.js';
+import {
+  getMainRendererThread,
+  getPrimaryInsightSet,
+  MISSING_CPU_SAMPLES,
+  PAGE_TRACE_CAPTURE_HINT,
+  shouldWarnAboutLayoutShiftCapture,
+  UNCONFIRMED_LAYOUT_SHIFT_CAPTURE,
+} from '../helpers.js';
 import type { LoadedTrace } from '../loader.js';
 import type { CwvRating, OverviewResult } from '../types.js';
 
@@ -65,14 +72,16 @@ export function extractOverview(
   const durationMs = round(maxMs - minMs);
 
   // 2. Main URL & Navigation Start
-  const mainUrl = data.Meta.mainFrameURL || null;
+  const mainFrameId = data.Meta.mainFrameId;
+  // The engine can retain the previous trace's main frame ID and URL when no frame is recorded.
+  const hasMainFrame = data.Meta.rendererProcessesByFrame.has(mainFrameId);
+  const mainUrl = hasMainFrame ? data.Meta.mainFrameURL || null : null;
   const mainNavs = data.Meta.mainFrameNavigations || [];
   const allNavs = Array.from(data.Meta.navigationsByNavigationId?.values() || []);
   const firstNav = mainNavs[0] || allNavs[0];
   const navigationStartMs = firstNav ? round(microToMilli(firstNav.ts)) : null;
 
   // 3. Core Web Vitals
-  const mainFrameId = data.Meta.mainFrameId;
   const pageMetrics = data.PageLoadMetrics?.metricScoresByFrameId?.get(mainFrameId);
 
   let fcp: OverviewResult['coreWebVitals']['fcp'] = null;
@@ -126,7 +135,8 @@ export function extractOverview(
   // CLS
   let cls: OverviewResult['coreWebVitals']['cls'] = null;
   const layoutShifts = data.LayoutShifts;
-  if (layoutShifts) {
+  const warnAboutShiftCapture = shouldWarnAboutLayoutShiftCapture(loadedTrace);
+  if (layoutShifts && !warnAboutShiftCapture) {
     const score = layoutShifts.sessionMaxScore ?? 0;
     const worstCluster = layoutShifts.clusters?.[0]?.clusterCumulativeScore;
     cls = {
@@ -234,6 +244,9 @@ export function extractOverview(
 
   // 5. Warnings
   const warnings: string[] = [];
+  if (!hasMainFrame) warnings.push(`No main page frame found. ${PAGE_TRACE_CAPTURE_HINT}`);
+  if (warnAboutShiftCapture) warnings.push(UNCONFIRMED_LAYOUT_SHIFT_CAPTURE);
+  if (mainThread && !mainThread.profileCalls.length) warnings.push(MISSING_CPU_SAMPLES);
   if (fcp && fcp.rating === 'poor') {
     warnings.push(`Poor First Contentful Paint: ${fcp.valueMs}ms (threshold: 1800ms)`);
   }

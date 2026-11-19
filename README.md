@@ -72,7 +72,7 @@ If your agent environment supports on-demand skills (such as `.gemini/skills/chr
 ````markdown
 ---
 name: chrome-trace-analysis
-description: Inspect and query Chrome/DevTools performance trace files and test fixtures (.json, .json.gz) using trace-engine-cli. Use when analyzing trace events, insights, or fixtures.
+description: Inspect and query saved Chrome/DevTools performance trace files and test fixtures (.json, .json.gz) using trace-engine-cli. Use when analyzing trace events, CPU activity, Web Vitals, or diagnostic insights.
 ---
 
 # Chrome & Chromium DevTools Trace Analysis
@@ -226,6 +226,14 @@ trace-engine-cli scan fixtures/traces/ --cat devtools.timeline --phase X
 2. Inspect navigations and insight set IDs: `trace-engine-cli navigations <fixture>`
 3. Inspect relevant subsystem: `trace-engine-cli shifts <fixture> --events`, `trace-engine-cli network <fixture>`, or `trace-engine-cli insights <fixture> --category <category>`
 4. Inspect raw event payloads: `trace-engine-cli events <fixture> --name <EventName> --fields <fieldPaths>`
+
+---
+
+## 5. Capture Caveats
+
+- **Missing page frames**. Browser-target CDP recordings can omit frame metadata. Record and save a trace from the DevTools Performance panel, or send `Tracing.start` on a CDP session attached to the page target. Use `trace-engine-cli scan <file>` to search raw events in an existing recording.
+- **Missing layout-shift data**. Include the `loading` category in CDP recordings for CLS analysis.
+- **Missing JavaScript samples**. Leave JavaScript sampling enabled in DevTools or include `disabled-by-default-v8.cpu_profiler` in CDP recordings for sampled call stacks.
 ````
 
 </details>

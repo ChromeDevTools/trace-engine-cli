@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import type { ParsedTrace } from './loader.js';
+import type { LoadedTrace, ParsedTrace } from './loader.js';
 
 type MapValue<T> = T extends Map<unknown, infer V> ? V : never;
 type RendererProcess = MapValue<NonNullable<ParsedTrace['data']['Renderer']>['processes']>;
@@ -99,6 +99,34 @@ export function getPrimaryInsightSet(
   navigationId?: string,
 ): InsightModels | null {
   return findInsightEntry(parsedTrace, navigationId)?.model ?? null;
+}
+
+export const PAGE_TRACE_CAPTURE_HINT =
+  'Record and save a trace from the DevTools Performance panel, or send CDP Tracing.start on a page target session.';
+
+export const UNCONFIRMED_LAYOUT_SHIFT_CAPTURE =
+  'No layout shifts or loading-category events were observed in this navigation recording. If you used CDP, check whether the loading category was enabled.';
+
+export const MISSING_CPU_SAMPLES =
+  'No CPU samples were recorded for this thread. Recapture with JavaScript samples enabled in the DevTools Performance panel, or include disabled-by-default-v8.cpu_profiler in CDP.';
+
+const LOADING_CATEGORY = /(?:^|,)loading(?:,|$)/;
+
+export function shouldWarnAboutLayoutShiftCapture({
+  rawEvents,
+  parsedTrace,
+}: LoadedTrace): boolean {
+  const { Meta, LayoutShifts } = parsedTrace.data;
+  // A recording of an already-loaded page may contain no loading events even with CLS enabled.
+  if (!Meta.mainFrameNavigations.length || LayoutShifts?.clusters.length) return false;
+
+  return !rawEvents.some(
+    (event) =>
+      typeof event === 'object' &&
+      event !== null &&
+      (('name' in event && event.name === 'LayoutShift') ||
+        ('cat' in event && typeof event.cat === 'string' && LOADING_CATEGORY.test(event.cat))),
+  );
 }
 
 /**
