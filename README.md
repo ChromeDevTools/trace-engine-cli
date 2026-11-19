@@ -259,7 +259,7 @@ trace-engine-cli --help
 
 | Option | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
-| `-f, --format` | `'toon' \| 'md'` | `'toon'` | Output serialization format (`toon` or `md`) |
+| `-f, --format` | `'toon' \| 'md' \| 'json'` | `'toon'` | Output serialization format |
 | `--time-range` | `string` | — | Filter window relative to trace start (e.g. `"3500,4200"`, `"3.5s,4.2s"`, `"100ms-500ms"`) |
 | `--absolute-timestamps` | `boolean` | `false` | Treat time ranges as raw absolute trace timestamps rather than relative to trace start |
 | `--trace-engine`| `string` | — | Path to a custom DevTools trace engine bundle |
@@ -520,6 +520,14 @@ trace-engine-cli scan fixtures/ --name TracingStartedInBrowser --fields args.dat
 
 ### Markdown (`--format md`)
 Generates standard GitHub Flavored Markdown (GFM) tables and summary headings, ideal for terminal viewing or pasting into PR descriptions.
+
+### JSON (`--format json`)
+Prints the command result as JSON for scripts and automations. The default
+overview omits its drill-down footer in this format.
+
+```bash
+trace-engine-cli overview trace.json.gz --format json | jq '.mainThreadBreakdown.scriptingMs'
+```
 
 ---
 
