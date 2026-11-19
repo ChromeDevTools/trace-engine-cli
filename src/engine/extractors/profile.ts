@@ -14,11 +14,12 @@
 
 import type { TimeRange } from '../../utils/filter.js';
 import { microToMilli, round } from '../../utils/units.js';
-import { getMainRendererThread } from '../helpers.js';
+import { getRendererThread, MISSING_CPU_SAMPLES, rendererCpuFilter } from '../helpers.js';
 import type { LoadedTrace } from '../loader.js';
 import type { ProfileResult } from '../types.js';
 
 export interface ExtractProfileOptions {
+  threadId?: string;
   timeRange?: TimeRange;
   bucketMs?: number;
   top?: number;
@@ -43,16 +44,20 @@ export function extractProfile(
   const topCount = options?.top ?? 3;
 
   const result: ProfileResult = {
+    threadId: options?.threadId,
     timeRange: { startMs, endMs },
     bucketSizeMs,
     buckets: [],
   };
 
-  const mainThread = getMainRendererThread(parsedTrace.data);
+  const mainThread = getRendererThread(parsedTrace.data, options?.threadId);
   if (!mainThread?.entries?.length) {
     return result;
   }
 
+  if (!mainThread.profileCalls.length) result.warnings = [MISSING_CPU_SAMPLES];
+
+  const cpuFilter = rendererCpuFilter(loadedTrace);
   let currentStart = startMs;
   while (currentStart < endMs) {
     const currentEnd = Math.min(endMs, round(currentStart + bucketSizeMs));
@@ -60,12 +65,12 @@ export function extractProfile(
 
     const bottomUp = new engine.Extras.TraceTree.BottomUpRootNode(mainThread.entries, {
       textFilter: { accept: () => true },
-      filters: [],
+      filters: [cpuFilter],
       startTime: engine.Types.Timing.Milli(currentStart),
       endTime: engine.Types.Timing.Milli(currentEnd),
     });
 
-    const funcList: Array<{ name: string; selfTimeMs: number }> = [];
+    const funcList: Array<{ name: string; url?: string; selfTimeMs: number }> = [];
     let totalActiveMs = 0;
 
     const children = bottomUp.children();
@@ -80,6 +85,7 @@ export function extractProfile(
       totalActiveMs += node.selfTime;
       funcList.push({
         name: fnName,
+        url: frame?.url || undefined,
         selfTimeMs: round(node.selfTime),
       });
     }
@@ -88,6 +94,7 @@ export function extractProfile(
 
     const topFunctions = funcList.slice(0, topCount).map((f) => ({
       name: f.name,
+      url: f.url,
       selfTimeMs: f.selfTimeMs,
       selfTimePct: totalActiveMs > 0 ? round((f.selfTimeMs / totalActiveMs) * 100, 1) : 0,
     }));

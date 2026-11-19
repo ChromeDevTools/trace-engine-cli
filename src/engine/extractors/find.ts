@@ -14,12 +14,14 @@
 
 import { isEventInBounds, type TimeRange } from '../../utils/filter.js';
 import { microToMilli, round } from '../../utils/units.js';
-import { getMainRendererThread } from '../helpers.js';
+import { getRendererThread } from '../helpers.js';
 import type { LoadedTrace } from '../loader.js';
 import type { FindCallInstance, FindIntervalItem, FindResult } from '../types.js';
 
 export interface ExtractFindOptions {
-  functionName: string;
+  threadId?: string;
+  functionName?: string;
+  url?: string;
   timeRange?: TimeRange;
   limit?: number;
 }
@@ -29,12 +31,18 @@ export interface ExtractFindOptions {
  */
 export function extractFind(loadedTrace: LoadedTrace, options: ExtractFindOptions): FindResult {
   const { engine, parsedTrace } = loadedTrace;
-  const functionQuery = options.functionName.trim();
+  const functionQuery = options.functionName?.trim();
+  const urlQuery = options.url?.trim();
+  if (!functionQuery && !urlQuery) throw new Error('Specify --function or --url to search for.');
+  const functionNeedle = functionQuery?.toLowerCase();
+  const urlNeedle = urlQuery?.toLowerCase();
   const timeRange = options.timeRange;
   const limit = options.limit ?? 50;
 
   const result: FindResult = {
+    threadId: options.threadId,
     functionQuery,
+    urlQuery,
     timeRange,
     totalCalls: 0,
     totalDurationMs: 0,
@@ -42,12 +50,11 @@ export function extractFind(loadedTrace: LoadedTrace, options: ExtractFindOption
     calls: [],
   };
 
-  const mainThread = getMainRendererThread(parsedTrace.data);
-  if (!mainThread || !functionQuery) {
+  const mainThread = getRendererThread(parsedTrace.data, options?.threadId);
+  if (!mainThread) {
     return result;
   }
 
-  const queryLower = functionQuery.toLowerCase();
   const matchedCalls: FindCallInstance[] = [];
 
   for (const entry of mainThread.entries) {
@@ -61,8 +68,12 @@ export function extractFind(loadedTrace: LoadedTrace, options: ExtractFindOption
     const frame = engine.Extras.TraceTree.eventStackFrame(entry);
     const fnName = frame?.functionName || entry.name || '';
 
-    if (fnName.toLowerCase().includes(queryLower)) {
+    if (
+      (!functionNeedle || fnName.toLowerCase().includes(functionNeedle)) &&
+      (!urlNeedle || frame?.url.toLowerCase().includes(urlNeedle))
+    ) {
       matchedCalls.push({
+        functionName: fnName,
         timestampMs: round(startMs),
         durationMs: round(durMs),
         url: frame?.url,

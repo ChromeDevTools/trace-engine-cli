@@ -26,6 +26,7 @@ import type {
   SchedulingResult,
   ShiftsResult,
   TasksResult,
+  ThreadItem,
 } from '../engine/types.js';
 import { formatBytes, formatMs, formatScore } from '../utils/units.js';
 
@@ -60,7 +61,7 @@ export function formatOverviewMarkdown(overview: OverviewResult): string {
   );
   lines.push('');
 
-  lines.push('## Main Thread Time Breakdown');
+  lines.push(overview.threadId ? `## Thread ${overview.threadId} Time Breakdown` : '## Main Thread Time Breakdown');
   lines.push('');
   lines.push('| Category | Duration (ms) | Share |');
   lines.push('|---|---|---|');
@@ -181,6 +182,8 @@ export function formatInsightsMarkdown(insights: InsightsResult): string {
 
 export function formatTasksMarkdown(tasksResult: TasksResult): string {
   const lines: string[] = [`# Tasks (${tasksResult.mode})`, ''];
+  if (tasksResult.threadId) lines.push(`Renderer thread \`${tasksResult.threadId}\``, '');
+  if (tasksResult.warnings?.length) lines.push(...tasksResult.warnings, '');
   if (tasksResult.tasks.length === 0) {
     lines.push('No tasks found matching criteria.');
     return lines.join('\n');
@@ -191,7 +194,7 @@ export function formatTasksMarkdown(tasksResult: TasksResult): string {
   for (const t of tasksResult.tasks) {
     const loc = t.url ? `${t.url}${t.lineNumber !== undefined ? `:${t.lineNumber}` : ''}` : '-';
     lines.push(
-      `| ${formatMs(t.startTimeMs)} | ${formatMs(t.durationMs)} | ${formatMs(t.selfTimeMs)} | \`${t.functionName}\` | \`${loc}\` |`,
+      `| ${formatMs(t.startTimeMs)} | ${formatMs(t.durationMs)} | ${formatMs(t.selfTimeMs)} | \`${t.callPath?.join(' > ') ?? t.functionName}\` | \`${loc}\` |`,
     );
   }
   return lines.join('\n');
@@ -314,7 +317,10 @@ export function formatShiftsMarkdown(shifts: ShiftsResult): string {
 }
 
 export function formatFindMarkdown(findResult: FindResult): string {
-  const lines: string[] = [`# Function Execution: \`${findResult.functionQuery}\``, ''];
+  const heading = findResult.functionQuery ? `# Function Execution: \`${findResult.functionQuery}\`` : '# Function Execution';
+  const lines: string[] = [heading, ''];
+  if (findResult.urlQuery) lines.push(`- **URL**: \`${findResult.urlQuery}\``);
+  if (findResult.threadId) lines.push(`- **Renderer thread**: \`${findResult.threadId}\``);
   lines.push(`- **Total Calls**: \`${findResult.totalCalls}\``);
   lines.push(`- **Total Duration**: \`${formatMs(findResult.totalDurationMs)}\``);
   lines.push(`- **Average Duration**: \`${formatMs(findResult.avgDurationMs)}\``);
@@ -342,11 +348,11 @@ export function formatFindMarkdown(findResult: FindResult): string {
   if (findResult.calls.length > 0) {
     lines.push('## Call Invocations');
     lines.push('');
-    lines.push('| Timestamp (ms) | Duration (ms) | Location |');
-    lines.push('|---|---|---|');
+    lines.push('| Timestamp (ms) | Duration (ms) | Function | Location |');
+    lines.push('|---|---|---|---|');
     for (const c of findResult.calls) {
       const loc = c.url ? `${c.url}${c.lineNumber !== undefined ? `:${c.lineNumber}` : ''}` : '-';
-      lines.push(`| ${formatMs(c.timestampMs)} | ${formatMs(c.durationMs)} | \`${loc}\` |`);
+      lines.push(`| ${formatMs(c.timestampMs)} | ${formatMs(c.durationMs)} | ${c.functionName ?? '-'} | \`${loc}\` |`);
     }
     lines.push('');
   }
@@ -360,6 +366,9 @@ export function formatProfileMarkdown(profileResult: ProfileResult): string {
     '',
   ];
 
+  if (profileResult.threadId) lines.push(`Renderer thread \`${profileResult.threadId}\``, '');
+  if (profileResult.warnings?.length) lines.push(...profileResult.warnings, '');
+
   if (profileResult.buckets.length === 0) {
     lines.push('No CPU activity found in the specified range.');
     return lines.join('\n');
@@ -368,7 +377,7 @@ export function formatProfileMarkdown(profileResult: ProfileResult): string {
   lines.push('| Time Bucket | Active CPU (ms) | Top Functions (% of slice) |');
   lines.push('|---|---|---|');
   for (const b of profileResult.buckets) {
-    const topSummary = b.topFunctions.map((f) => `${f.name} (${f.selfTimePct}%)`).join(', ');
+    const topSummary = b.topFunctions.map((f) => `${f.name} (${f.selfTimePct}%)${f.url ? ` \`${f.url}\`` : ''}`).join(', ');
     lines.push(
       `| ${formatMs(b.startMs)} - ${formatMs(b.endMs)} | ${formatMs(b.totalActiveMs)} | ${topSummary || 'None (Idle)'} |`,
     );
@@ -378,6 +387,7 @@ export function formatProfileMarkdown(profileResult: ProfileResult): string {
 
 export function formatDiffMarkdown(diffResult: DiffResult): string {
   const lines: string[] = ['# Differential Profile', ''];
+  if (diffResult.threadId) lines.push(`Renderer thread \`${diffResult.threadId}\``, '');
   lines.push(
     `- **Window A**: \`${formatMs(diffResult.windowA.startMs)} - ${formatMs(diffResult.windowA.endMs)}\` (${formatMs(diffResult.windowA.durationMs)})`,
   );
@@ -559,6 +569,14 @@ export function formatScanMarkdown(result: ScanResult): string {
     lines.push(`| \`${safeFile}\` | ${item.matchCount} | ${cats} | ${firstEvent} | ${firstTs} |`);
   }
 
+  return lines.join('\n');
+}
+
+export function formatThreadsMarkdown({ threads }: { threads: ThreadItem[] }): string {
+  const lines = ['# Renderer Threads', '', '| PID:TID | Thread | Frame URLs | Default | CPU samples |', '|---|---|---|---|---|'];
+  for (const thread of threads) {
+    lines.push(`| ${thread.id} | ${thread.name ?? '-'} | ${thread.frameUrls.join(', ') || '-'} | ${thread.isDefault ? 'Yes' : 'No'} | ${thread.hasCpuSamples ? 'Yes' : 'No'} |`);
+  }
   return lines.join('\n');
 }
 

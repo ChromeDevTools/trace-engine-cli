@@ -14,14 +14,16 @@
 
 import { isEventInBounds, type TimeRange } from '../../utils/filter.js';
 import { microToMilli, round } from '../../utils/units.js';
-import { getMainRendererThread } from '../helpers.js';
+import { getRendererThread, MISSING_CPU_SAMPLES, rendererCpuFilter } from '../helpers.js';
 import type { LoadedTrace } from '../loader.js';
 import type { TaskItem, TasksResult } from '../types.js';
 
 export interface ExtractTasksOptions {
+  threadId?: string;
   minDurationMs?: number;
   tree?: 'bottom-up' | 'top-down';
   top?: number;
+  urlOnly?: boolean;
   timeRange?: TimeRange;
 }
 
@@ -35,143 +37,123 @@ export function extractTasks(loadedTrace: LoadedTrace, options?: ExtractTasksOpt
   const treeMode = options?.tree;
   const timeRange = options?.timeRange;
 
-  const mainThread = getMainRendererThread(parsedTrace.data);
+  const mainThread = getRendererThread(parsedTrace.data, options?.threadId);
 
-  if (!mainThread) {
+  const result: TasksResult = { mode: treeMode ?? 'list', threadId: options?.threadId, tasks: [] };
+  if (!mainThread) return result;
+  if (!mainThread.profileCalls.length) result.warnings = [MISSING_CPU_SAMPLES];
+
+  const traceBounds = parsedTrace.data.Meta.traceBounds;
+  const treeOptions = {
+    startTime: engine.Types.Timing.Milli(timeRange?.startMs ?? microToMilli(traceBounds.min)),
+    endTime: engine.Types.Timing.Milli(timeRange?.endMs ?? microToMilli(traceBounds.max)),
+  };
+  const traceTree = engine.Extras.TraceTree;
+  const cpuFilter = rendererCpuFilter(loadedTrace);
+  type TreeNode = InstanceType<typeof traceTree.Node>;
+
+  function treeItem(node: TreeNode): TaskItem {
+    const frame = traceTree.eventStackFrame(node.event);
+    // Bottom-up nodes are created in event end order. A recursive call can end before its caller.
+    const firstTs = node.events.reduce<number>((min, event) => Math.min(min, event.ts), node.event.ts);
     return {
-      mode: treeMode || 'list',
-      tasks: [],
+      startTimeMs: round(microToMilli(firstTs)),
+      durationMs: round(node.totalTime),
+      selfTimeMs: round(node.selfTime),
+      functionName: frame?.functionName || node.event.name,
+      url: frame?.url || undefined,
+      lineNumber: frame?.lineNumber,
+      columnNumber: frame?.columnNumber,
     };
   }
 
-  const traceBounds = parsedTrace.data.Meta.traceBounds;
-  const startMs = timeRange ? timeRange.startMs : microToMilli(traceBounds.min);
-  const endMs = timeRange ? timeRange.endMs : microToMilli(traceBounds.max);
-
   if (treeMode === 'bottom-up') {
-    const bottomUp = new engine.Extras.TraceTree.BottomUpRootNode(mainThread.entries, {
+    const bottomUp = new traceTree.BottomUpRootNode(mainThread.entries, {
+      ...treeOptions,
       textFilter: { accept: () => true },
-      filters: [],
-      startTime: engine.Types.Timing.Milli(startMs),
-      endTime: engine.Types.Timing.Milli(endMs),
+      filters: [cpuFilter],
     });
 
-    const tasks: TaskItem[] = [];
-    const children = bottomUp.children();
-    for (const node of children.values()) {
-      if (node.selfTime <= 0) continue;
-      const frame = node.event ? engine.Extras.TraceTree.eventStackFrame(node.event) : null;
-      tasks.push({
-        startTimeMs: round(startMs),
-        durationMs: round(node.totalTime),
-        selfTimeMs: round(node.selfTime),
-        functionName: frame?.functionName || node.event?.name || String(node.id) || 'Unknown',
-        url: frame?.url || undefined,
-        lineNumber: frame?.lineNumber,
-        columnNumber: frame?.columnNumber,
-      });
-    }
-
-    tasks.sort((a, b) => b.selfTimeMs - a.selfTimeMs);
-    return {
-      mode: 'bottom-up',
-      tasks: tasks.slice(0, top),
-    };
+    result.tasks = [...bottomUp.children().values()]
+      .filter((node) => node.selfTime > 0)
+      .map(treeItem)
+      .filter((item) => !options?.urlOnly || item.url)
+      .sort((a, b) => b.selfTimeMs - a.selfTimeMs)
+      .slice(0, top);
+    return result;
   }
 
   if (treeMode === 'top-down') {
-    const topDown = new engine.Extras.TraceTree.TopDownRootNode(mainThread.entries, {
-      filters: [],
-      startTime: engine.Types.Timing.Milli(startMs),
-      endTime: engine.Types.Timing.Milli(endMs),
+    const topDown = new traceTree.TopDownRootNode(mainThread.entries, {
+      ...treeOptions,
+      filters: options?.urlOnly
+        ? [cpuFilter, { accept: (event) => Boolean(traceTree.eventStackFrame(event)?.url) }]
+        : [cpuFilter],
     });
 
-    const tasks: TaskItem[] = [];
-    const children = topDown.children();
-    for (const node of children.values()) {
-      const frame = node.event ? engine.Extras.TraceTree.eventStackFrame(node.event) : null;
-      tasks.push({
-        startTimeMs: round(startMs),
-        durationMs: round(node.totalTime),
-        selfTimeMs: round(node.selfTime),
-        functionName: frame?.functionName || node.event?.name || String(node.id) || 'Unknown',
-        url: frame?.url || undefined,
-        lineNumber: frame?.lineNumber,
-        columnNumber: frame?.columnNumber,
-      });
+    // TraceTree computes descendants on demand. Expand only the most expensive paths.
+    const pending: Array<{ node: TreeNode; parents: string[] }> = [...topDown.children().values()]
+      .map((node) => ({ node, parents: [] }));
+    while (pending.length && result.tasks.length < top) {
+      pending.sort((a, b) => b.node.totalTime - a.node.totalTime);
+      const next = pending.shift();
+      if (!next) break;
+      const item = treeItem(next.node);
+      const callPath = [...next.parents, item.functionName];
+      result.tasks.push({ ...item, callPath });
+      if (result.tasks.length === top || !next.node.hasChildren()) continue;
+      for (const node of next.node.children().values()) pending.push({ node, parents: callPath });
     }
-
-    tasks.sort((a, b) => b.durationMs - a.durationMs);
-    return {
-      mode: 'top-down',
-      tasks: tasks.slice(0, top),
-    };
+    return result;
   }
 
-  // Default List Mode
   const tasks: TaskItem[] = [];
   const entryToNode = parsedTrace.data.Renderer?.entryToNode;
 
   for (const entry of mainThread.entries) {
-    if (!entry.dur) continue;
-    const durMs = microToMilli(entry.dur);
-    const startEntryMs = microToMilli(entry.ts);
+    if (!entry.dur || (entry.name !== 'RunTask' && !engine.Helpers.Trace.isTopLevelEvent(entry))) continue;
+    const durationMs = microToMilli(entry.dur);
+    const startTimeMs = microToMilli(entry.ts);
+    if (durationMs < minDurationMs || !isEventInBounds(startTimeMs, durationMs, timeRange)) continue;
 
-    if (durMs < minDurationMs) continue;
-    if (!isEventInBounds(startEntryMs, durMs, timeRange)) continue;
-
-    const isTop = entry.name === 'RunTask' || engine.Helpers.Trace.isTopLevelEvent(entry);
-
-    if (isTop) {
-      let functionName = entry.name;
-      let url: string | undefined;
-      let lineNumber: number | undefined;
-      let columnNumber: number | undefined;
-      let selfTimeMs = durMs;
-
-      const frame = engine.Extras.TraceTree.eventStackFrame(entry);
-      if (frame?.functionName) {
-        functionName = frame.functionName;
-        url = frame.url;
-        lineNumber = frame.lineNumber;
-        columnNumber = frame.columnNumber;
-      }
-
-      if (entryToNode) {
-        const node = entryToNode.get(entry);
-        if (node?.children && node.children.length > 0) {
-          let childDurationSum = 0;
-          for (const c of node.children) {
-            childDurationSum += microToMilli(c.entry.dur ?? 0);
-          }
-          selfTimeMs = Math.max(0, durMs - childDurationSum);
-
-          if (!frame?.functionName) {
-            const mainChild = node.children[0].entry;
-            const childFrame = engine.Extras.TraceTree.eventStackFrame(mainChild);
-            functionName = `${entry.name} > ${childFrame?.functionName || mainChild.name}`;
-            url = childFrame?.url;
-            lineNumber = childFrame?.lineNumber;
-            columnNumber = childFrame?.columnNumber;
-          }
+    const node = entryToNode?.get(entry);
+    let source = entry;
+    let frame = traceTree.eventStackFrame(entry);
+    if (node && !frame?.url) {
+      let bestTime = -1;
+      const pending = [...node.children];
+      while (pending.length > 0) {
+        const child = pending.pop();
+        if (!child) break;
+        const childFrame = traceTree.eventStackFrame(child.entry);
+        const time = child.selfTime ?? child.entry.dur ?? 0;
+        if (childFrame?.url && childFrame.functionName && time > bestTime) {
+          source = child.entry;
+          frame = childFrame;
+          bestTime = time;
         }
+        for (const descendant of child.children) pending.push(descendant);
       }
 
-      tasks.push({
-        startTimeMs: round(startEntryMs),
-        durationMs: round(durMs),
-        selfTimeMs: round(selfTimeMs),
-        functionName,
-        url,
-        lineNumber,
-        columnNumber,
-      });
+      if (source === entry && !frame?.functionName && node.children[0]) {
+        source = node.children[0].entry;
+        frame = traceTree.eventStackFrame(source);
+      }
     }
+
+    if (options?.urlOnly && !frame?.url) continue;
+    const name = frame?.functionName || source.name;
+    tasks.push({
+      startTimeMs: round(startTimeMs),
+      durationMs: round(durationMs),
+      selfTimeMs: round(microToMilli(node?.selfTime ?? entry.dur)),
+      functionName: source === entry ? name : `${entry.name} > ${name}`,
+      url: frame?.url || undefined,
+      lineNumber: frame?.lineNumber,
+      columnNumber: frame?.columnNumber,
+    });
   }
 
-  tasks.sort((a, b) => b.durationMs - a.durationMs);
-  return {
-    mode: 'list',
-    tasks: tasks.slice(0, top),
-  };
+  result.tasks = tasks.sort((a, b) => b.durationMs - a.durationMs).slice(0, top);
+  return result;
 }

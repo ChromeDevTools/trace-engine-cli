@@ -568,3 +568,17 @@ npm run format
 Apache-2.0
 
 Eligibility for the [Google Open Source Software Vulnerability Rewards Program](https://bughunters.google.com/open-source-security) is determined by the [Google Open Source Software Vulnerability Reward Program Rules](https://bughunters.google.com/about/rules/open-source/google-open-source-software-vulnerability-reward-program-rules).
+
+### Analyzing subframes
+
+Run `trace-engine-cli threads <file>` to find the renderer PID:TID and frame URLs.
+Pass `--thread PID:TID` to `overview`, `tasks`, `profile`, `find`, or `diff` to analyze
+that thread, including an out-of-process iframe's renderer. Frames that share a
+thread share its CPU breakdown. The overview's web vitals still describe the page.
+The breakdown uses instrumented timeline events, so CPU samples can add function
+names to drill-down commands without changing the category definitions.
+
+Use `tasks --tree bottom-up --url-only` for rows with source locations, and
+`tasks --tree top-down` for call paths. Aggregated rows show the first matching
+event's timestamp. Use `find --url <substring>` for script URL searches, with
+`--function <substring>` to narrow the results further.

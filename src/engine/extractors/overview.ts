@@ -15,7 +15,7 @@
 import type { TimeRange } from '../../utils/filter.js';
 import { microToMilli, round } from '../../utils/units.js';
 import {
-  getMainRendererThread,
+  getRendererThread,
   getPrimaryInsightSet,
   MISSING_CPU_SAMPLES,
   PAGE_TRACE_CAPTURE_HINT,
@@ -50,6 +50,7 @@ function rateInp(inpMs: number): CwvRating {
 }
 
 export interface ExtractOverviewOptions {
+  threadId?: string;
   timeRange?: TimeRange;
 }
 
@@ -178,12 +179,15 @@ export function extractOverview(
     totalMs: 0,
   };
 
-  const mainThread = getMainRendererThread(data);
+  const mainThread = getRendererThread(data, options?.threadId);
 
   if (mainThread?.entries && mainThread.entries.length > 0) {
     const bottomUp = new engine.Extras.TraceTree.BottomUpRootNode(mainThread.entries, {
       textFilter: { accept: () => true },
-      filters: [],
+      // Timeline categories use instrumented events so optional samples cannot change attribution.
+      filters: [{ accept: (event) =>
+        !engine.Types.Events.isProfileCall(event) && !engine.Types.Events.isPhaseAsync(event.ph),
+      }],
       startTime: engine.Types.Timing.Milli(minMs),
       endTime: engine.Types.Timing.Milli(maxMs),
     });
@@ -197,13 +201,14 @@ export function extractOverview(
         name === 'MajorGC' ||
         name === 'MinorGC' ||
         name === 'GCEvent' ||
-        name.startsWith('v8.gc')
+        name.toLowerCase().startsWith('v8.gc')
       ) {
         breakdown.gcMs += node.selfTime;
       } else if (name === 'Layout' || name === 'UpdateLayoutTree' || name === 'InvalidateLayout') {
         breakdown.layoutMs += node.selfTime;
       } else if (
         name === 'UpdateLayerTree' ||
+        name === 'Layerize' ||
         name === 'Paint' ||
         name === 'CompositeLayers' ||
         name === 'RasterTask' ||
@@ -211,10 +216,11 @@ export function extractOverview(
       ) {
         breakdown.renderingMs += node.selfTime;
       } else if (
-        name.startsWith('f:') ||
         name === 'EvaluateScript' ||
         name === 'FunctionCall' ||
-        name === 'v8.compile' ||
+        name.startsWith('v8.compile') ||
+        name === 'v8.callFunction' ||
+        name === 'RunMicrotasks' ||
         name === 'v8.run' ||
         name === 'TimerFire' ||
         name === 'FireAnimationFrame' ||
@@ -266,6 +272,7 @@ export function extractOverview(
   }
 
   return {
+    threadId: options?.threadId,
     bounds: { minMs, maxMs, durationMs },
     mainUrl,
     navigationStartMs,

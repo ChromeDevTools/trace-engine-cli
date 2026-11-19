@@ -89,10 +89,21 @@ describe('Tasks Extractor', () => {
     assert.equal(bottomUpResult.mode, 'bottom-up');
     assert.ok(bottomUpResult.tasks.length > 0);
     assert.equal(bottomUpResult.tasks[0].functionName, 'bootApp');
+    assert.equal(bottomUpResult.tasks[0].startTimeMs, 1405);
     assert.equal(bottomUpResult.tasks[0].selfTimeMs, 70);
     assert.equal(bottomUpResult.tasks[0].durationMs, 70);
     assert.equal(bottomUpResult.tasks[0].url, 'https://example.com/app.js');
     assert.equal(bottomUpResult.tasks[0].lineNumber, 42);
     assert.equal(bottomUpResult.tasks[0].columnNumber, 8);
+  });
+
+  test('shows nested calls in the top-down tree and applies URL filtering before the limit', async () => {
+    const loaded = await loadTraceFromFile(path.resolve(import.meta.dirname, '../fixtures/navigation-cwv-trace.json'));
+    const topDown = extractTasks(loaded, { tree: 'top-down' });
+    assert.deepEqual(topDown.tasks.find((task) => task.functionName === 'bootApp')?.callPath, ['RunTask', 'bootApp']);
+
+    const filtered = extractTasks(loaded, { tree: 'top-down', top: 1, urlOnly: true });
+    assert.equal(filtered.tasks[0]?.url, 'https://example.com/app.js');
+    assert.equal(filtered.tasks[0]?.functionName, 'bootApp');
   });
 });
