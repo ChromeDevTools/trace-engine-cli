@@ -72,12 +72,21 @@ If your agent environment supports on-demand skills (such as `.gemini/skills/chr
 ````markdown
 ---
 name: chrome-trace-analysis
-description: Inspect and query Chrome/DevTools performance trace files and test fixtures (.json, .json.gz) using trace-engine-cli. Use when analyzing trace events, insights, or fixtures.
+description: Record or troubleshoot Chrome performance traces and analyze saved .json or .json.gz traces with trace-engine-cli.
 ---
 
 # Chrome & Chromium DevTools Trace Analysis
 
 Use `trace-engine-cli` to inspect, profile, and diagnose performance recordings captured by the Chrome/Chromium DevTools Performance panel (`.json`, `.json.gz`).
+
+---
+
+## Capture a trace
+
+- In the DevTools Performance panel, record the page activity and save the trace. Leave JavaScript samples enabled when investigating functions.
+- With CDP, send `Tracing.start` on a session attached to the page target. Include `loading` for layout shifts and `disabled-by-default-v8.cpu_profiler` for sampled JavaScript stacks.
+
+If the CLI reports missing page frames, recapture from the page target. Use `trace-engine-cli scan <file>` if you only have the existing recording and need to search its raw events.
 
 ---
 
@@ -552,14 +561,3 @@ npm run format
 Apache-2.0
 
 Eligibility for the [Google Open Source Software Vulnerability Rewards Program](https://bughunters.google.com/open-source-security) is determined by the [Google Open Source Software Vulnerability Reward Program Rules](https://bughunters.google.com/about/rules/open-source/google-open-source-software-vulnerability-reward-program-rules).
-
-### Recording a compatible trace
-
-Save the recording from the DevTools Performance panel. For CDP recordings, send
-`Tracing.start` on a session attached to the page target. Browser-session recordings
-can omit the frame tree required for page analysis. Use `scan` to search their raw
-events.
-
-Include the `loading` category for layout shifts and
-`disabled-by-default-v8.cpu_profiler` for sampled JavaScript stacks. In the DevTools
-Performance panel, leave JavaScript samples enabled for function attribution.

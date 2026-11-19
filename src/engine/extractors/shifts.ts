@@ -156,8 +156,7 @@ export function extractShifts(
   // Sort by score descending
   clusters.sort((a, b) => b.cumulativeScore - a.cumulativeScore);
 
-  return {
-    clusters,
-    ...(!hasLayoutShiftData(loadedTrace) ? { warnings: [MISSING_LAYOUT_SHIFT_DATA] } : {}),
-  };
+  const result: ShiftsResult = { clusters };
+  if (!hasLayoutShiftData(loadedTrace)) result.warnings = [MISSING_LAYOUT_SHIFT_DATA];
+  return result;
 }

@@ -101,11 +101,14 @@ export function getPrimaryInsightSet(
   return findInsightEntry(parsedTrace, navigationId)?.model ?? null;
 }
 
+export const PAGE_TRACE_CAPTURE_HINT =
+  'Record and save a trace from the DevTools Performance panel, or send CDP Tracing.start on a page target session.';
+
 export const MISSING_LAYOUT_SHIFT_DATA =
-  'No layout shift or loading-category events were recorded. Include the loading category to measure layout shifts.';
+  'No layout shift or loading-category events were recorded. To measure layout shifts, recapture in the DevTools Performance panel or include the loading category in CDP.';
 
 export const MISSING_CPU_SAMPLES =
-  'No CPU samples were recorded for this thread. Enable JavaScript samples in DevTools or include disabled-by-default-v8.cpu_profiler.';
+  'No CPU samples were recorded for this thread. Recapture with JavaScript samples enabled in the DevTools Performance panel, or include disabled-by-default-v8.cpu_profiler in CDP.';
 
 export function hasLayoutShiftData({ rawEvents, parsedTrace }: LoadedTrace): boolean {
   return Boolean(parsedTrace.data.LayoutShifts?.clusters.length) || rawEvents.some(

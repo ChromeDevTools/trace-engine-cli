@@ -13,6 +13,8 @@
 // limitations under the License.
 
 import assert from 'node:assert/strict';
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import os from 'node:os';
 import path from 'node:path';
 import test, { describe } from 'node:test';
 import { runCli } from '../src/cli.js';
@@ -38,6 +40,7 @@ describe('CLI Dispatcher', () => {
     assert.ok(output.includes('bounds:'));
     assert.ok(output.includes('https://example.com/test'));
     assert.ok(output.includes('Drill-down commands:'));
+    assert.doesNotMatch(output, /No main page frame found/);
   });
 
   test('runs explicit overview command in markdown mode', async () => {
@@ -310,5 +313,28 @@ describe('CLI Dispatcher', () => {
       '--render-blocking',
     ]);
     assert.ok(output.includes('https://example.com/styles.css'));
+  });
+
+  test('offers a recapture hint when a trace parses without main frame metadata', async (t) => {
+    const dir = await mkdtemp(path.join(os.tmpdir(), 'trace-cli-'));
+    t.after(() => rm(dir, { recursive: true, force: true }));
+    const file = path.join(dir, 'no-frames.json');
+    await writeFile(file, JSON.stringify([{
+      name: 'TracingStartedInBrowser',
+      cat: 'disabled-by-default-devtools.timeline',
+      ph: 'I',
+      pid: 1,
+      tid: 1,
+      ts: 1000,
+      args: { data: { frames: [] } },
+    }]));
+
+    const args = ['node', 'trace-engine-cli', 'overview'];
+    const validFixture = path.resolve(import.meta.dirname, 'fixtures/basic-trace.json');
+    await captureCliOutput([...args, validFixture]);
+
+    const output = await captureCliOutput([...args, file]);
+    assert.match(output, /^mainUrl: null$/m);
+    assert.match(output, /No main page frame found.*DevTools Performance panel.*page target session/);
   });
 });

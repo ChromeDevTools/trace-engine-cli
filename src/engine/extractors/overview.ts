@@ -20,6 +20,7 @@ import {
   hasLayoutShiftData,
   MISSING_CPU_SAMPLES,
   MISSING_LAYOUT_SHIFT_DATA,
+  PAGE_TRACE_CAPTURE_HINT,
 } from '../helpers.js';
 import type { LoadedTrace } from '../loader.js';
 import type { CwvRating, OverviewResult } from '../types.js';
@@ -71,14 +72,16 @@ export function extractOverview(
   const durationMs = round(maxMs - minMs);
 
   // 2. Main URL & Navigation Start
-  const mainUrl = data.Meta.mainFrameURL || null;
+  const mainFrameId = data.Meta.mainFrameId;
+  // The engine can retain the previous trace's main frame ID and URL when no frame is recorded.
+  const hasMainFrame = data.Meta.rendererProcessesByFrame.has(mainFrameId);
+  const mainUrl = hasMainFrame ? data.Meta.mainFrameURL || null : null;
   const mainNavs = data.Meta.mainFrameNavigations || [];
   const allNavs = Array.from(data.Meta.navigationsByNavigationId?.values() || []);
   const firstNav = mainNavs[0] || allNavs[0];
   const navigationStartMs = firstNav ? round(microToMilli(firstNav.ts)) : null;
 
   // 3. Core Web Vitals
-  const mainFrameId = data.Meta.mainFrameId;
   const pageMetrics = data.PageLoadMetrics?.metricScoresByFrameId?.get(mainFrameId);
 
   let fcp: OverviewResult['coreWebVitals']['fcp'] = null;
@@ -241,6 +244,7 @@ export function extractOverview(
 
   // 5. Warnings
   const warnings: string[] = [];
+  if (!hasMainFrame) warnings.push(`No main page frame found. ${PAGE_TRACE_CAPTURE_HINT}`);
   if (!hasShiftData) warnings.push(MISSING_LAYOUT_SHIFT_DATA);
   if (mainThread && !mainThread.profileCalls.length) warnings.push(MISSING_CPU_SAMPLES);
   if (fcp && fcp.rating === 'poor') {
