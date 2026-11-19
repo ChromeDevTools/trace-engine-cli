@@ -32,6 +32,16 @@ async function captureCliOutput(args: string[]): Promise<string> {
 }
 
 describe('CLI Dispatcher', () => {
+  test('emits parseable JSON from the default overview command', async () => {
+    const fixture = path.resolve(import.meta.dirname, 'fixtures/basic-trace.json');
+    const args = ['node', 'trace-engine-cli', fixture, '--format', 'json'];
+    const output = await captureCliOutput(args);
+    const result: unknown = JSON.parse(output);
+
+    assert.ok(result && typeof result === 'object' && 'mainUrl' in result);
+    assert.equal(result.mainUrl, 'https://example.com/test');
+  });
+
   test('runs overview command by default for a trace file', async () => {
     const fixturePath = path.resolve(import.meta.dirname, 'fixtures/basic-trace.json');
     const output = await captureCliOutput(['node', 'trace-engine-cli', fixturePath]);

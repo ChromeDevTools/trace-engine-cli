@@ -28,8 +28,10 @@ import { extractScheduling } from './engine/extractors/scheduling.js';
 import { extractShifts } from './engine/extractors/shifts.js';
 import { extractTasks } from './engine/extractors/tasks.js';
 import { loadTraceFromFile } from './engine/loader.js';
-import { formatResult } from './formatters/index.js';
+import { type FormatOptions, formatResult } from './formatters/index.js';
 import { parseTimeRange, parseTimeValue, resolveTimeRange } from './utils/filter.js';
+
+const DEFAULT_OUTPUT_FORMAT: FormatOptions['format'] = 'toon';
 
 /**
  * Splits a comma-separated argument into trimmed, non-empty tokens.
@@ -52,9 +54,9 @@ export async function runCli(argv: string[]): Promise<void> {
     .option('format', {
       alias: 'f',
       type: 'string',
-      choices: ['toon', 'md'] as const,
-      default: 'toon',
-      describe: 'Output format (toon or md)',
+      choices: ['toon', 'md', 'json'] satisfies FormatOptions['format'][],
+      default: DEFAULT_OUTPUT_FORMAT,
+      describe: 'Output format (toon, md, or json)',
     })
     .option('trace-engine', {
       type: 'string',
@@ -95,7 +97,7 @@ export async function runCli(argv: string[]): Promise<void> {
         const isDefaultCmd = !args._.includes('overview');
         console.log(
           formatResult(result, {
-            format: args.format as 'toon' | 'md',
+            format: args.format,
             type: 'overview',
             includeHint: isDefaultCmd,
           }),
@@ -139,7 +141,7 @@ export async function runCli(argv: string[]): Promise<void> {
         });
         console.log(
           formatResult(result, {
-            format: args.format as 'toon' | 'md',
+            format: args.format,
             type: 'insights',
           }),
         );
@@ -191,7 +193,7 @@ export async function runCli(argv: string[]): Promise<void> {
         });
         console.log(
           formatResult(result, {
-            format: args.format as 'toon' | 'md',
+            format: args.format,
             type: 'tasks',
           }),
         );
@@ -237,7 +239,7 @@ export async function runCli(argv: string[]): Promise<void> {
         });
         console.log(
           formatResult(result, {
-            format: args.format as 'toon' | 'md',
+            format: args.format,
             type: 'find',
           }),
         );
@@ -283,7 +285,7 @@ export async function runCli(argv: string[]): Promise<void> {
         });
         console.log(
           formatResult(result, {
-            format: args.format as 'toon' | 'md',
+            format: args.format,
             type: 'profile',
           }),
         );
@@ -341,7 +343,7 @@ export async function runCli(argv: string[]): Promise<void> {
         });
         console.log(
           formatResult(result, {
-            format: args.format as 'toon' | 'md',
+            format: args.format,
             type: 'diff',
           }),
         );
@@ -370,7 +372,7 @@ export async function runCli(argv: string[]): Promise<void> {
         const result = extractScheduling(loaded, { timeRange });
         console.log(
           formatResult(result, {
-            format: args.format as 'toon' | 'md',
+            format: args.format,
             type: 'scheduling',
           }),
         );
@@ -421,7 +423,7 @@ export async function runCli(argv: string[]): Promise<void> {
         });
         console.log(
           formatResult(result, {
-            format: args.format as 'toon' | 'md',
+            format: args.format,
             type: 'network',
           }),
         );
@@ -450,7 +452,7 @@ export async function runCli(argv: string[]): Promise<void> {
         const result = extractInteractions(loaded, { timeRange });
         console.log(
           formatResult(result, {
-            format: args.format as 'toon' | 'md',
+            format: args.format,
             type: 'interactions',
           }),
         );
@@ -488,7 +490,7 @@ export async function runCli(argv: string[]): Promise<void> {
         });
         console.log(
           formatResult(result, {
-            format: args.format as 'toon' | 'md',
+            format: args.format,
             type: 'shifts',
           }),
         );
@@ -554,7 +556,7 @@ export async function runCli(argv: string[]): Promise<void> {
         });
         console.log(
           formatResult(result, {
-            format: args.format as 'toon' | 'md',
+            format: args.format,
             type: 'events',
           }),
         );
@@ -577,7 +579,7 @@ export async function runCli(argv: string[]): Promise<void> {
         const result = extractNavigations(loaded);
         console.log(
           formatResult(result, {
-            format: args.format as 'toon' | 'md',
+            format: args.format,
             type: 'navigations',
           }),
         );
@@ -642,7 +644,7 @@ export async function runCli(argv: string[]): Promise<void> {
         });
         console.log(
           formatResult(result, {
-            format: args.format as 'toon' | 'md',
+            format: args.format,
             type: 'scan',
           }),
         );

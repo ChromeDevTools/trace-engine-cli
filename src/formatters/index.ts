@@ -16,7 +16,7 @@ import { formatMarkdown } from './markdown.js';
 import { formatToon } from './toon.js';
 
 export interface FormatOptions {
-  format: 'toon' | 'md';
+  format: 'toon' | 'md' | 'json';
   type?:
     | 'overview'
     | 'insights'
@@ -72,6 +72,8 @@ const NEXT_STEPS_HINT_MD = `
 `.trim();
 
 export function formatResult(data: unknown, options: FormatOptions): string {
+  if (options.format === 'json') return JSON.stringify(data, null, 2);
+
   let output = '';
   if (options.format === 'md') {
     output = formatMarkdown(data, options.type);
