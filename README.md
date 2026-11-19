@@ -72,7 +72,7 @@ If your agent environment supports on-demand skills (such as `.gemini/skills/chr
 ````markdown
 ---
 name: chrome-trace-analysis
-description: Inspect and query saved Chrome/DevTools performance traces and test fixtures (.json, .json.gz) with trace-engine-cli. Use when analyzing trace events, CPU activity, Web Vitals, or diagnostic insights, or investigating missing capture data.
+description: Inspect and query saved Chrome/DevTools performance trace files and test fixtures (.json, .json.gz) using trace-engine-cli. Use when analyzing trace events, CPU activity, Web Vitals, or diagnostic insights.
 ---
 
 # Chrome & Chromium DevTools Trace Analysis
