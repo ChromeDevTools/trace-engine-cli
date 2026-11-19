@@ -227,6 +227,10 @@ trace-engine-cli scan fixtures/traces/ --cat devtools.timeline --phase X
 3. Inspect relevant subsystem: `trace-engine-cli shifts <fixture> --events`, `trace-engine-cli network <fixture>`, or `trace-engine-cli insights <fixture> --category <category>`
 4. Inspect raw event payloads: `trace-engine-cli events <fixture> --name <EventName> --fields <fieldPaths>`
 
+### Recipe D: Analyzing CPU Activity in a Subframe
+1. Run `trace-engine-cli threads <file>` and find the renderer thread by frame URL.
+2. Pass its `PID:TID` as `--thread` to a CPU command, for example `trace-engine-cli tasks <file> --thread 123:1`. Frames that share a renderer thread share its CPU results.
+
 ---
 
 ## 5. Capture Caveats
@@ -285,6 +289,10 @@ All time-range inputs (`--time-range`, `--window-a`, `--window-b`, `--bucket`) s
 ### 1. `overview` (default)
 High-level trace metadata, Core Web Vitals (FCP, LCP, CLS, INP), non-overlapping main-thread category breakdown (Scripting, Layout, Rendering, GC, System, Idle), and diagnostic warnings.
 
+The breakdown uses the same instrumented timeline events with and without CPU
+samples. With `--thread PID:TID`, the breakdown describes that
+renderer thread and Web Vitals still describe the page.
+
 ```bash
 # Default invocation (includes the drill-down commands footer)
 trace-engine-cli trace.json.gz
@@ -326,8 +334,9 @@ warnings[1]: 1 render-blocking resource(s) detected.
 
 # Drill-down commands:
 # - trace-engine-cli insights <file> [--category <lcp|inp|cls|render-blocking|third-parties>] [--navigation <id>]
-# - trace-engine-cli tasks <file> [--min-duration <ms>] [--tree <bottom-up|top-down>] [--top <n>]
-# - trace-engine-cli find <file> --function <name> [--time-range <start,end>]
+# - trace-engine-cli tasks <file> [--min-duration <ms>] [--tree <bottom-up|top-down>] [--url-only] [--top <n>]
+# - trace-engine-cli find <file> [--function <name>] [--url <pattern>] [--time-range <start,end>]
+# - trace-engine-cli threads <file>
 # - trace-engine-cli profile <file> [--time-range <start,end>] [--bucket <ms>]
 # - trace-engine-cli diff <file> --window-a <start,end> --window-b <start,end>
 # - trace-engine-cli scheduling <file> [--time-range <start,end>]
@@ -365,7 +374,9 @@ trace-engine-cli insights trace.json.gz --navigation 9E74B39B7C378297071F6E3618C
 ---
 
 ### 3. `tasks`
-Main thread task execution, long tasks, and aggregated call trees.
+Long tasks and aggregated call trees for a renderer thread. Aggregated rows
+show their first event timestamp. Top-down rows include the call path, and
+`--url-only` limits output to rows with source URLs.
 
 ```bash
 # List long tasks above 50ms (default)
@@ -374,8 +385,8 @@ trace-engine-cli tasks trace.json.gz
 # Custom duration threshold and limit within relative window
 trace-engine-cli tasks trace.json.gz --min-duration 20 --time-range "1s,4s" --top 10
 
-# Bottom-up call tree (aggregated and sorted by self-time)
-trace-engine-cli tasks trace.json.gz --tree bottom-up --top 20
+# Bottom-up call tree with source URLs, sorted by self-time
+trace-engine-cli tasks trace.json.gz --tree bottom-up --url-only --top 20
 
 # Top-down call tree (aggregated and sorted by total duration)
 trace-engine-cli tasks trace.json.gz --tree top-down --top 20
@@ -384,14 +395,15 @@ trace-engine-cli tasks trace.json.gz --tree top-down --top 20
 ---
 
 ### 4. `find`
-Search for executions of a specific function name or pattern to verify call frequency, duration, or confirm starvation (0 calls in window).
+Search executions by function name or script URL substring to inspect call
+frequency and duration. Pass both `--function` and `--url` to require both matches.
 
 ```bash
 # Search for invocations of a function across the whole trace
 trace-engine-cli find trace.json.gz --function "drawEventTiles"
 
-# Query within a specific relative time window
-trace-engine-cli find trace.json.gz --function "drawEventTiles" --time-range "3.5s,4.2s"
+# Search calls in one script within a relative time window
+trace-engine-cli find trace.json.gz --url "/app.js" --time-range "3.5s,4.2s"
 ```
 
 ---
@@ -513,6 +525,18 @@ trace-engine-cli scan fixtures/ --name TracingStartedInBrowser --fields args.dat
 
 ---
 
+### 14. `threads`
+
+List renderer threads, their frame URLs, and CPU sample availability. Use
+`--thread PID:TID` with `overview`, `tasks`, `profile`, `find`, or `diff` to
+select a renderer, including one for an out-of-process iframe.
+
+```bash
+trace-engine-cli threads trace.json.gz
+```
+
+---
+
 ## Output Formats
 
 ### TOON (Default)
@@ -568,17 +592,3 @@ npm run format
 Apache-2.0
 
 Eligibility for the [Google Open Source Software Vulnerability Rewards Program](https://bughunters.google.com/open-source-security) is determined by the [Google Open Source Software Vulnerability Reward Program Rules](https://bughunters.google.com/about/rules/open-source/google-open-source-software-vulnerability-reward-program-rules).
-
-### Analyzing subframes
-
-Run `trace-engine-cli threads <file>` to find the renderer PID:TID and frame URLs.
-Pass `--thread PID:TID` to `overview`, `tasks`, `profile`, `find`, or `diff` to analyze
-that thread, including an out-of-process iframe's renderer. Frames that share a
-thread share its CPU breakdown. The overview's web vitals still describe the page.
-The breakdown uses instrumented timeline events, so CPU samples can add function
-names to drill-down commands without changing the category definitions.
-
-Use `tasks --tree bottom-up --url-only` for rows with source locations, and
-`tasks --tree top-down` for call paths. Aggregated rows show the first matching
-event's timestamp. Use `find --url <substring>` for script URL searches, with
-`--function <substring>` to narrow the results further.

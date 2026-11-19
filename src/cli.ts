@@ -51,7 +51,7 @@ function parseCommaList(val?: unknown): string[] | undefined {
 
 const THREAD_OPTION = {
   type: 'string',
-  describe: 'Renderer thread as PID:TID, from the threads command',
+  describe: 'Renderer thread as PID:TID. Use threads <file> to look up a frame URL.',
 } satisfies import('yargs').Options;
 
 function positiveInteger(value: number): number {

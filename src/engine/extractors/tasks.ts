@@ -27,13 +27,19 @@ export interface ExtractTasksOptions {
   timeRange?: TimeRange;
 }
 
+function rankAndLimit<T extends { score: number }>(candidates: T[], limit: number): void {
+  candidates.sort((a, b) => b.score - a.score);
+  if (candidates.length > limit) candidates.length = limit;
+}
+
 /**
  * Extracts long main thread tasks and aggregated top-down / bottom-up call trees.
  */
 export function extractTasks(loadedTrace: LoadedTrace, options?: ExtractTasksOptions): TasksResult {
   const { engine, parsedTrace } = loadedTrace;
   const minDurationMs = options?.minDurationMs ?? 50;
-  const top = options?.top ?? 20;
+  const top = Math.trunc(options?.top ?? 20);
+  const urlOnly = options?.urlOnly;
   const treeMode = options?.tree;
   const timeRange = options?.timeRange;
 
@@ -42,6 +48,7 @@ export function extractTasks(loadedTrace: LoadedTrace, options?: ExtractTasksOpt
   const result: TasksResult = { mode: treeMode ?? 'list', threadId: options?.threadId, tasks: [] };
   if (!mainThread) return result;
   if (!mainThread.profileCalls.length) result.warnings = [MISSING_CPU_SAMPLES];
+  if (!(top > 0)) return result;
 
   const traceBounds = parsedTrace.data.Meta.traceBounds;
   const treeOptions = {
@@ -74,12 +81,17 @@ export function extractTasks(loadedTrace: LoadedTrace, options?: ExtractTasksOpt
       filters: [cpuFilter],
     });
 
-    result.tasks = [...bottomUp.children().values()]
-      .filter((node) => node.selfTime > 0)
-      .map(treeItem)
-      .filter((item) => !options?.urlOnly || item.url)
-      .sort((a, b) => b.selfTimeMs - a.selfTimeMs)
-      .slice(0, top);
+    const candidates: Array<{ node: TreeNode; score: number }> = [];
+    for (const node of bottomUp.children().values()) {
+      if (node.selfTime > 0 && (!urlOnly || traceTree.eventStackFrame(node.event)?.url)) {
+        candidates.push({ node, score: round(node.selfTime) });
+        // Trim in batches to bound memory and sort work for a small --top.
+        if (candidates.length === top * 2) rankAndLimit(candidates, top);
+      }
+    }
+    rankAndLimit(candidates, top);
+
+    for (const { node } of candidates) result.tasks.push(treeItem(node));
     return result;
   }
 
@@ -107,14 +119,24 @@ export function extractTasks(loadedTrace: LoadedTrace, options?: ExtractTasksOpt
     return result;
   }
 
-  const tasks: TaskItem[] = [];
-  const entryToNode = parsedTrace.data.Renderer?.entryToNode;
+  const candidates: Array<{ entry: (typeof mainThread.entries)[number]; score: number }> = [];
+  // URL eligibility is only known after inspecting a task's descendants.
+  const candidateLimit = urlOnly ? Infinity : top;
 
   for (const entry of mainThread.entries) {
     if (!entry.dur || (entry.name !== 'RunTask' && !engine.Helpers.Trace.isTopLevelEvent(entry))) continue;
     const durationMs = microToMilli(entry.dur);
     const startTimeMs = microToMilli(entry.ts);
     if (durationMs < minDurationMs || !isEventInBounds(startTimeMs, durationMs, timeRange)) continue;
+
+    candidates.push({ entry, score: round(durationMs) });
+    if (candidates.length === candidateLimit * 2) rankAndLimit(candidates, candidateLimit);
+  }
+  rankAndLimit(candidates, candidateLimit);
+
+  const entryToNode = parsedTrace.data.Renderer?.entryToNode;
+  for (const { entry, score: durationMs } of candidates) {
+    if (result.tasks.length === top) break;
 
     const node = entryToNode?.get(entry);
     let source = entry;
@@ -141,12 +163,12 @@ export function extractTasks(loadedTrace: LoadedTrace, options?: ExtractTasksOpt
       }
     }
 
-    if (options?.urlOnly && !frame?.url) continue;
+    if (urlOnly && !frame?.url) continue;
     const name = frame?.functionName || source.name;
-    tasks.push({
-      startTimeMs: round(startTimeMs),
-      durationMs: round(durationMs),
-      selfTimeMs: round(microToMilli(node?.selfTime ?? entry.dur)),
+    result.tasks.push({
+      startTimeMs: round(microToMilli(entry.ts)),
+      durationMs,
+      selfTimeMs: round(microToMilli(node?.selfTime ?? entry.dur ?? 0)),
       functionName: source === entry ? name : `${entry.name} > ${name}`,
       url: frame?.url || undefined,
       lineNumber: frame?.lineNumber,
@@ -154,6 +176,5 @@ export function extractTasks(loadedTrace: LoadedTrace, options?: ExtractTasksOpt
     });
   }
 
-  result.tasks = tasks.sort((a, b) => b.durationMs - a.durationMs).slice(0, top);
   return result;
 }
