@@ -158,6 +158,10 @@ export interface ThreadItem {
   hasCpuSamples: boolean;
 }
 
+export interface ThreadsResult {
+  threads: ThreadItem[];
+}
+
 /**
  * Individual network request details and timing waterfall.
  */

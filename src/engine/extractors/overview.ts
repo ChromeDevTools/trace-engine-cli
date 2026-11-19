@@ -184,7 +184,8 @@ export function extractOverview(
   if (mainThread?.entries && mainThread.entries.length > 0) {
     const bottomUp = new engine.Extras.TraceTree.BottomUpRootNode(mainThread.entries, {
       textFilter: { accept: () => true },
-      // Timeline categories use instrumented events so optional samples cannot change attribution.
+      // Renderer.entryToNode is built with CPU samples, which can displace overlapping timeline
+      // events. Keep timeline attribution independent of whether samples were captured.
       filters: [
         {
           accept: (event) =>

@@ -29,8 +29,8 @@ import { extractShifts } from './engine/extractors/shifts.js';
 import { extractTasks } from './engine/extractors/tasks.js';
 import { listRendererThreads } from './engine/helpers.js';
 import { loadTraceFromFile } from './engine/loader.js';
+import type { ThreadsResult } from './engine/types.js';
 import { type FormatOptions, formatResult } from './formatters/index.js';
-import { formatThreadsMarkdown } from './formatters/markdown.js';
 import { parseTimeRange, parseTimeValue, resolveTimeRange } from './utils/filter.js';
 
 const DEFAULT_OUTPUT_FORMAT: FormatOptions['format'] = 'toon';
@@ -129,12 +129,8 @@ export async function runCli(argv: string[]): Promise<void> {
         }),
       async (args) => {
         const loaded = await loadTraceFromFile(args.file, args.traceEngine);
-        const result = { threads: listRendererThreads(loaded.parsedTrace.data) };
-        console.log(
-          args.format === 'md'
-            ? formatThreadsMarkdown(result)
-            : formatResult(result, { format: 'toon' }),
-        );
+        const result: ThreadsResult = { threads: listRendererThreads(loaded.parsedTrace.data) };
+        console.log(formatResult(result, { format: args.format, type: 'threads' }));
       },
     )
     .command(

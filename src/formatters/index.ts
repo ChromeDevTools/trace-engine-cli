@@ -21,6 +21,7 @@ export interface FormatOptions {
     | 'overview'
     | 'insights'
     | 'tasks'
+    | 'threads'
     | 'network'
     | 'interactions'
     | 'shifts'

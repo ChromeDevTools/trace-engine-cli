@@ -26,7 +26,7 @@ import type {
   SchedulingResult,
   ShiftsResult,
   TasksResult,
-  ThreadItem,
+  ThreadsResult,
 } from '../engine/types.js';
 import { formatBytes, formatMs, formatScore } from '../utils/units.js';
 
@@ -582,7 +582,7 @@ export function formatScanMarkdown(result: ScanResult): string {
   return lines.join('\n');
 }
 
-export function formatThreadsMarkdown({ threads }: { threads: ThreadItem[] }): string {
+function formatThreadsMarkdown({ threads }: ThreadsResult): string {
   const lines = [
     '# Renderer Threads',
     '',
@@ -605,6 +605,8 @@ export function formatMarkdown(data: unknown, type?: string): string {
       return formatInsightsMarkdown(data as InsightsResult);
     case 'tasks':
       return formatTasksMarkdown(data as TasksResult);
+    case 'threads':
+      return formatThreadsMarkdown(data as ThreadsResult);
     case 'network':
       return formatNetworkMarkdown(data as NetworkResult);
     case 'interactions':
