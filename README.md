@@ -340,7 +340,7 @@ warnings[1]: 1 render-blocking resource(s) detected.
 # - trace-engine-cli profile <file> [--time-range <start,end>] [--bucket <ms>]
 # - trace-engine-cli diff <file> --window-a <start,end> --window-b <start,end>
 # - trace-engine-cli scheduling <file> [--time-range <start,end>]
-# - trace-engine-cli network <file> [--render-blocking] [--slowest <n>] [--initiator-chain <url>]
+# - trace-engine-cli network <file> [--render-blocking] [--slowest <n>] [--initiator-chain <url>] [--strip-query]
 # - trace-engine-cli interactions <file>
 # - trace-engine-cli shifts <file> [--events]
 # - trace-engine-cli events <file> [--name <names>] [--cat <category>] [--fields <fields>]
@@ -449,6 +449,9 @@ trace-engine-cli scheduling trace.json.gz --time-range "3.5s,4.1s"
 
 ### 8. `network`
 Network request waterfall, priority, timings (Queueing, DNS, SSL, TTFB, Download), and request initiator chains.
+
+Use `--strip-query` to remove query strings from request and initiator URLs in
+output. Initiator-chain matching still uses the original URLs.
 
 ```bash
 # Top 20 slowest requests

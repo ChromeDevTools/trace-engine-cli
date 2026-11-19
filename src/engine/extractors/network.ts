@@ -23,9 +23,17 @@ export type SyntheticNetworkRequest = NonNullable<
 
 export interface ExtractNetworkOptions {
   renderBlocking?: boolean;
+  stripQuery?: boolean;
   slowest?: number;
   initiatorChain?: string;
   timeRange?: TimeRange;
+}
+
+function stripUrlQuery(url: string): string {
+  const query = url.indexOf('?');
+  const fragment = url.indexOf('#');
+  if (query === -1 || (fragment !== -1 && fragment < query)) return url;
+  return url.slice(0, query) + (fragment === -1 ? '' : url.slice(fragment));
 }
 
 export function extractNetwork(
@@ -37,6 +45,7 @@ export function extractNetwork(
   const slowest = options?.slowest ?? 20;
   const initiatorTarget = options?.initiatorChain;
   const timeRange = options?.timeRange;
+  const displayUrl = (url: string) => options?.stripQuery ? stripUrlQuery(url) : url;
 
   const rawRequests = parsedTrace.data.NetworkRequests?.byTime || [];
   const result: NetworkResult = {
@@ -63,8 +72,8 @@ export function extractNetwork(
         const initiatorUrl = initiator?.args.data.url || initiator?.name;
 
         chain.push({
-          url,
-          initiatorUrl,
+          url: displayUrl(url),
+          initiatorUrl: initiatorUrl === undefined ? undefined : displayUrl(initiatorUrl),
           type: current.args.data.mimeType || current.name,
         });
 
@@ -120,7 +129,7 @@ export function extractNetwork(
 
     processed.push({
       requestId: req.args.data.requestId,
-      url,
+      url: displayUrl(url),
       mimeType: req.args.data.mimeType || '',
       priority: req.args.data.priority || 'Normal',
       timing: {

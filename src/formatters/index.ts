@@ -44,7 +44,7 @@ const NEXT_STEPS_HINT_TOON = `
 # - trace-engine-cli profile <file> [--time-range <start,end>] [--bucket <ms>]
 # - trace-engine-cli diff <file> --window-a <start,end> --window-b <start,end>
 # - trace-engine-cli scheduling <file> [--time-range <start,end>]
-# - trace-engine-cli network <file> [--render-blocking] [--slowest <n>] [--initiator-chain <url>]
+# - trace-engine-cli network <file> [--render-blocking] [--slowest <n>] [--initiator-chain <url>] [--strip-query]
 # - trace-engine-cli interactions <file>
 # - trace-engine-cli shifts <file> [--events]
 # - trace-engine-cli events <file> [--name <names>] [--cat <category>] [--fields <fields>]
@@ -64,7 +64,7 @@ const NEXT_STEPS_HINT_MD = `
 - \`trace-engine-cli profile <file> [--time-range <start,end>] [--bucket <ms>]\`
 - \`trace-engine-cli diff <file> --window-a <start,end> --window-b <start,end>\`
 - \`trace-engine-cli scheduling <file> [--time-range <start,end>]\`
-- \`trace-engine-cli network <file> [--render-blocking] [--slowest <n>] [--initiator-chain <url>]\`
+- \`trace-engine-cli network <file> [--render-blocking] [--slowest <n>] [--initiator-chain <url>] [--strip-query]\`
 - \`trace-engine-cli interactions <file>\`
 - \`trace-engine-cli shifts <file> [--events]\`
 - \`trace-engine-cli events <file> [--name <names>] [--cat <category>] [--fields <fields>]\`

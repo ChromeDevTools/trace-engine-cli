@@ -447,6 +447,10 @@ export async function runCli(argv: string[]): Promise<void> {
             type: 'string',
             demandOption: true,
           })
+          .option('strip-query', {
+            type: 'boolean',
+            describe: 'Remove query strings from request and initiator URLs in the output',
+          })
           .option('render-blocking', {
             type: 'boolean',
             default: false,
@@ -476,6 +480,7 @@ export async function runCli(argv: string[]): Promise<void> {
           args.absoluteTimestamps as boolean,
         );
         const result = extractNetwork(loaded, {
+          stripQuery: args.stripQuery,
           renderBlocking: args.renderBlocking as boolean,
           slowest: args.slowest as number,
           initiatorChain: args.initiatorChain as string | undefined,
