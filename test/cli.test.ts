@@ -17,6 +17,7 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import test, { describe } from 'node:test';
+import { decode } from '@toon-format/toon';
 import { runCli } from '../src/cli.js';
 
 async function captureCliOutput(args: string[]): Promise<string> {
@@ -66,6 +67,41 @@ describe('CLI Dispatcher', () => {
     assert.ok(output.includes('# Trace Overview'));
     assert.ok(output.includes('## Core Web Vitals'));
     assert.ok(output.includes('## Main Thread Time Breakdown'));
+  });
+
+  test('runs several requested report sections with the same range and result shapes', async () => {
+    const fixture = path.resolve(import.meta.dirname, 'fixtures/navigation-cwv-trace.json');
+    const args = ['node', 'trace-engine-cli'];
+    const options = ['--time-range', '400,525'];
+    const reportArgs = [...args, 'report', fixture, '--sections', 'tasks,network,tasks'];
+    const output = decode(await captureCliOutput([...reportArgs, ...options]));
+    assert.deepEqual(output, {
+      tasks: decode(await captureCliOutput([...args, 'tasks', fixture, ...options])),
+      network: decode(await captureCliOutput([...args, 'network', fixture, ...options])),
+    });
+    const jsonOptions = [...options, '--format', 'json'];
+    const json = JSON.parse(await captureCliOutput([...reportArgs, ...jsonOptions]));
+    assert.deepEqual(json, {
+      tasks: JSON.parse(await captureCliOutput([...args, 'tasks', fixture, ...jsonOptions])),
+      network: JSON.parse(await captureCliOutput([...args, 'network', fixture, ...jsonOptions])),
+    });
+
+    const markdown = await captureCliOutput([...args, 'report', fixture, '--format', 'md']);
+    assert.match(markdown, /# Trace Overview.*# Tasks.*# Layout Shifts.*# Network Requests/s);
+    const toon = await captureCliOutput([...args, 'report', fixture, '--sections', 'overview']);
+    assert.match(toon, /^overview:/);
+  });
+
+  test('rejects unknown report sections before parsing the trace', async () => {
+    const args = [
+      'node',
+      'trace-engine-cli',
+      'report',
+      'unavailable.json',
+      '--sections',
+      'tasks,unknown',
+    ];
+    await assert.rejects(() => captureCliOutput(args), /Unknown report section "unknown"/);
   });
 
   test('honors relative time ranges for navigations and insight selection', async () => {
