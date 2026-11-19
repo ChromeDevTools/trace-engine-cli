@@ -24,6 +24,7 @@ import type {
   ProfileResult,
   ScanResult,
   SchedulingResult,
+  ShiftImpactedNodeItem,
   ShiftsResult,
   TasksResult,
   ThreadsResult,
@@ -106,15 +107,23 @@ export function formatInsightsMarkdown(insights: InsightsResult): string {
     lines.push(`- **Navigation ID**: \`${insights.navigationId}\``, '');
   }
 
+  if (insights.insightSetId) lines.push(`- **Insight Set ID**: \`${insights.insightSetId}\``, '');
+
   if (insights.lcpBreakdown) {
     const l = insights.lcpBreakdown;
     lines.push('## LCP Breakdown');
     lines.push('');
     lines.push(`- **Total LCP**: \`${formatMs(l.totalLcpMs)}\``);
-    lines.push(`- **TTFB**: \`${formatMs(l.ttfbMs)}\``);
-    lines.push(`- **Resource Load Delay**: \`${formatMs(l.loadDelayMs)}\``);
-    lines.push(`- **Resource Load Duration**: \`${formatMs(l.loadDurationMs)}\``);
-    lines.push(`- **Element Render Delay**: \`${formatMs(l.renderDelayMs)}\``);
+    lines.push(`- **TTFB**: \`${l.ttfbMs === null ? 'N/A' : formatMs(l.ttfbMs)}\``);
+    lines.push(
+      `- **Resource Load Delay**: \`${l.loadDelayMs === null ? 'N/A' : formatMs(l.loadDelayMs)}\``,
+    );
+    lines.push(
+      `- **Resource Load Duration**: \`${l.loadDurationMs === null ? 'N/A' : formatMs(l.loadDurationMs)}\``,
+    );
+    lines.push(
+      `- **Element Render Delay**: \`${l.renderDelayMs === null ? 'N/A' : formatMs(l.renderDelayMs)}\``,
+    );
     if (l.lcpElement) lines.push(`- **Element**: \`${l.lcpElement}\``);
     if (l.lcpUrl) lines.push(`- **Resource URL**: \`${l.lcpUrl}\``);
     lines.push('');
@@ -252,18 +261,17 @@ export function formatInteractionsMarkdown(interactions: InteractionsResult): st
   return lines.join('\n');
 }
 
-function formatCulpritLabel(item: {
-  debugName?: string;
-  selector?: string;
-  tagName?: string;
-  nodeId?: number;
-}): string {
-  const detail =
-    item.selector ||
-    item.tagName ||
-    (item.nodeId !== undefined ? `Node #${item.nodeId}` : undefined);
+function formatCulpritLabel(item: ShiftImpactedNodeItem): string {
+  const detail = item.selector || item.tagName;
   if (item.debugName && detail) return `${item.debugName} (${detail})`;
-  return item.debugName || detail || 'unknown';
+  if (item.debugName || detail) return item.debugName || detail || '';
+  const node = item.nodeId !== undefined ? `Node #${item.nodeId}` : 'Unknown node';
+  const process = item.processId !== undefined ? ` (PID ${item.processId})` : '';
+  const movement =
+    item.oldRect && item.newRect
+      ? ` [${item.oldRect.join(', ')}] → [${item.newRect.join(', ')}]`
+      : '';
+  return `${node}${process}${movement}`;
 }
 
 export function formatShiftsMarkdown(shifts: ShiftsResult): string {

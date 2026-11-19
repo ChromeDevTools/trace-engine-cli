@@ -14,11 +14,7 @@
 
 import { isEventInBounds, type TimeRange } from '../../utils/filter.js';
 import { microToMilli, round } from '../../utils/units.js';
-import {
-  getPrimaryInsightSet,
-  shouldWarnAboutLayoutShiftCapture,
-  UNCONFIRMED_LAYOUT_SHIFT_CAPTURE,
-} from '../helpers.js';
+import { shouldWarnAboutLayoutShiftCapture, UNCONFIRMED_LAYOUT_SHIFT_CAPTURE } from '../helpers.js';
 import type { LoadedTrace } from '../loader.js';
 import type {
   ShiftClusterItem,
@@ -40,11 +36,27 @@ export type TraceImpactedNode = NonNullable<
   NonNullable<SyntheticLayoutShift['args']['data']>['impacted_nodes']
 >[number];
 
-/** Extends TraceImpactedNode with optional tag_name and selector fields used in synthetic trace payloads. */
-export type TraceImpactedNodeWithSelector = TraceImpactedNode & {
-  tag_name?: string;
-  selector?: string;
-};
+export function layoutShiftNodeLabel(node: ShiftCulprit): string {
+  return (
+    node.selector ||
+    node.debugName ||
+    node.tagName ||
+    (node.nodeId !== undefined ? `Node #${node.nodeId}` : 'Unknown node')
+  );
+}
+
+function getNodeDetails(node: TraceImpactedNode, shift: SyntheticLayoutShift) {
+  return {
+    nodeId: node.node_id ?? undefined,
+    processId: shift.pid,
+    frameId: shift.args.frame || undefined,
+    tagName: 'tag_name' in node && typeof node.tag_name === 'string' ? node.tag_name : undefined,
+    selector: 'selector' in node && typeof node.selector === 'string' ? node.selector : undefined,
+    debugName: node.debug_name,
+    oldRect: node.old_rect,
+    newRect: node.new_rect,
+  };
+}
 
 /**
  * Extracts layout shift clusters, scores, and culprit elements.
@@ -52,14 +64,14 @@ export type TraceImpactedNodeWithSelector = TraceImpactedNode & {
 export function extractShifts(
   loadedTrace: LoadedTrace,
   options?: ExtractShiftsOptions,
+  rawClusters?: readonly SyntheticLayoutShiftCluster[],
 ): ShiftsResult {
-  const { parsedTrace } = loadedTrace;
   const timeRange = options?.timeRange;
-  const rawClusters = parsedTrace.data.LayoutShifts?.clusters || [];
+  const sourceClusters = rawClusters ?? loadedTrace.parsedTrace.data.LayoutShifts?.clusters ?? [];
 
   const clusters: ShiftClusterItem[] = [];
 
-  for (const cluster of rawClusters) {
+  for (const cluster of sourceClusters) {
     const startMs = microToMilli(cluster.clusterWindow?.min ?? cluster.ts ?? 0);
     const durMs = microToMilli(cluster.clusterWindow?.range ?? cluster.dur ?? 0);
     const score = cluster.clusterCumulativeScore ?? 0;
@@ -68,101 +80,74 @@ export function extractShifts(
       continue;
     }
 
-    const culpritMap = new Map<string, ShiftCulprit>();
+    const culpritMap = new Map<string | symbol, ShiftCulprit>();
     const individualEvents: ShiftIndividualEvent[] = [];
 
-    if (cluster.events) {
-      for (const ev of cluster.events) {
-        const scoreDelta = ev.args.data?.weighted_score_delta;
-        const nodes = (ev.args.data?.impacted_nodes || []) as TraceImpactedNodeWithSelector[];
-        for (const n of nodes) {
-          const key =
-            n.selector ||
-            (n.node_id ? `node:${n.node_id}` : n.debug_name || n.tag_name || 'unknown');
-          const existing = culpritMap.get(key);
-          if (existing) {
-            if (scoreDelta !== undefined) {
-              existing.scoreDelta = round((existing.scoreDelta ?? 0) + scoreDelta, 4);
-            }
-          } else {
-            culpritMap.set(key, {
-              nodeId: n.node_id,
-              tagName: n.tag_name,
-              selector: n.selector || (n.node_id ? `Node #${n.node_id}` : undefined),
-              debugName: n.debug_name,
-              scoreDelta: scoreDelta !== undefined ? round(scoreDelta, 4) : undefined,
-            });
+    for (const ev of cluster.events) {
+      const data = ev.args.data;
+      const scoreDelta = data?.weighted_score_delta;
+      const impactedNodes = (data?.impacted_nodes ?? []).map((node) => getNodeDetails(node, ev));
+      for (const node of impactedNodes) {
+        const { processId, frameId, nodeId, selector, debugName, tagName } = node;
+        // Backend node IDs can repeat across renderers and frames.
+        const identity = nodeId ?? (selector || debugName || tagName || undefined);
+        const key =
+          identity === undefined ? Symbol() : JSON.stringify([processId, frameId, identity]);
+        const existing = culpritMap.get(key);
+        if (existing) {
+          if (scoreDelta !== undefined) {
+            existing.scoreDelta = (existing.scoreDelta ?? 0) + scoreDelta;
           }
+          existing.newRect = node.newRect;
+        } else {
+          culpritMap.set(key, { ...node, scoreDelta });
         }
+      }
 
-        if (options?.includeEvents) {
-          const evTsMs = microToMilli(ev.ts);
-          const evScore = ev.args.data?.score ?? ev.args.data?.weighted_score_delta ?? 0;
-          const evWeighted = ev.args.data?.weighted_score_delta;
-          const evNavId = ev.args.data?.navigationId;
-          const hadRecentInput = ev.args.data?.had_recent_input;
-          const impactedNodes = nodes.map((node) => ({
-            nodeId: node.node_id,
-            tagName: node.tag_name,
-            selector: node.selector,
-            debugName: node.debug_name,
-            oldRect: node.old_rect,
-            newRect: node.new_rect,
-          }));
-
-          individualEvents.push({
-            timestampMs: round(evTsMs),
-            score: round(evScore, 4),
-            weightedScoreDelta: evWeighted !== undefined ? round(evWeighted, 4) : undefined,
-            navigationId: evNavId,
-            hadRecentInput,
-            impactedNodes: impactedNodes.length > 0 ? impactedNodes : undefined,
-          });
-        }
+      if (options?.includeEvents) {
+        individualEvents.push({
+          timestampMs: round(microToMilli(ev.ts)),
+          score: round(data?.score ?? scoreDelta ?? 0, 4),
+          weightedScoreDelta: scoreDelta !== undefined ? round(scoreDelta, 4) : undefined,
+          navigationId: data?.navigationId,
+          hadRecentInput: data?.had_recent_input,
+          impactedNodes: impactedNodes.length > 0 ? impactedNodes : undefined,
+        });
       }
     }
 
-    const clusterNavId =
-      cluster.navigationId ||
-      (cluster.events ? cluster.events[0]?.args.data?.navigationId : undefined);
+    const clusterNavId = cluster.navigationId || cluster.events[0]?.args.data?.navigationId;
 
     clusters.push({
       timestampMs: round(startMs),
       durationMs: round(durMs),
       cumulativeScore: round(score, 4),
       navigationId: clusterNavId,
-      culprits: Array.from(culpritMap.values()),
+      culprits: [...culpritMap.values()].map((node) => ({
+        ...node,
+        scoreDelta: node.scoreDelta !== undefined ? round(node.scoreDelta, 4) : undefined,
+      })),
       ...(options?.includeEvents ? { events: individualEvents } : {}),
     });
-  }
-
-  // If no clusters in handler, check insights
-  if (clusters.length === 0) {
-    const insightSet = getPrimaryInsightSet(parsedTrace);
-    const clsModel = insightSet?.CLSCulprits;
-    if (clsModel?.clusters && clsModel.clusters.length > 0) {
-      for (const c of clsModel.clusters) {
-        const startMs = microToMilli(c.clusterWindow?.min ?? 0);
-        const durMs = microToMilli(c.clusterWindow?.range ?? 0);
-        const score = c.clusterCumulativeScore ?? 0;
-        if (isEventInBounds(startMs, durMs, timeRange)) {
-          clusters.push({
-            timestampMs: round(startMs),
-            durationMs: round(durMs),
-            cumulativeScore: round(score, 4),
-            culprits: [],
-          });
-        }
-      }
-    }
   }
 
   // Sort by score descending
   clusters.sort((a, b) => b.cumulativeScore - a.cumulativeScore);
 
-  const result: ShiftsResult = { clusters };
+  const warnings: string[] = [];
   if (shouldWarnAboutLayoutShiftCapture(loadedTrace)) {
-    result.warnings = [UNCONFIRMED_LAYOUT_SHIFT_CAPTURE];
+    warnings.push(UNCONFIRMED_LAYOUT_SHIFT_CAPTURE);
   }
+  const missingNodeMetadata = clusters.some((cluster) =>
+    cluster.culprits.some((node) => !node.tagName && !node.selector && !node.debugName),
+  );
+  if (missingNodeMetadata) {
+    warnings.push(
+      'DOM names and selectors were unavailable for some shifted nodes. Backend node IDs and rectangles are shown when recorded.',
+    );
+  }
+
+  const result: ShiftsResult = { clusters };
+  if (warnings.length > 0) result.warnings = warnings;
   return result;
 }

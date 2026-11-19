@@ -158,7 +158,13 @@ export async function runCli(argv: string[]): Promise<void> {
           args.file as string,
           args.traceEngine as string | undefined,
         );
+        const timeRange = resolveTimeRange(
+          parseTimeRange(args.timeRange),
+          loaded.parsedTrace.data.Meta.traceBounds,
+          args.absoluteTimestamps,
+        );
         const result = extractInsights(loaded, {
+          timeRange,
           category: args.category as
             | 'lcp'
             | 'inp'
@@ -631,7 +637,12 @@ export async function runCli(argv: string[]): Promise<void> {
           args.file as string,
           args.traceEngine as string | undefined,
         );
-        const result = extractNavigations(loaded);
+        const timeRange = resolveTimeRange(
+          parseTimeRange(args.timeRange),
+          loaded.parsedTrace.data.Meta.traceBounds,
+          args.absoluteTimestamps,
+        );
+        const result = extractNavigations(loaded, timeRange);
         console.log(
           formatResult(result, {
             format: args.format,

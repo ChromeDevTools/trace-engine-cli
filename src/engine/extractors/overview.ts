@@ -15,7 +15,7 @@
 import type { TimeRange } from '../../utils/filter.js';
 import { microToMilli, round } from '../../utils/units.js';
 import {
-  getPrimaryInsightSet,
+  findInsightEntry,
   getRendererThread,
   MISSING_CPU_SAMPLES,
   PAGE_TRACE_CAPTURE_HINT,
@@ -83,6 +83,8 @@ export function extractOverview(
   const navigationStartMs = firstNav ? round(microToMilli(firstNav.ts)) : null;
 
   // 3. Core Web Vitals
+  const entry = findInsightEntry(parsedTrace);
+  const insightSet = entry?.model;
   const pageMetrics = data.PageLoadMetrics?.metricScoresByFrameId?.get(mainFrameId);
 
   let fcp: OverviewResult['coreWebVitals']['fcp'] = null;
@@ -90,30 +92,31 @@ export function extractOverview(
 
   if (pageMetrics) {
     const MetricName = engine.Handlers.ModelHandlers.PageLoadMetrics.MetricName;
-    for (const navMetrics of pageMetrics.values()) {
-      const fcpMetric = navMetrics.get(MetricName.FCP);
-      if (fcpMetric && fcpMetric.timing !== undefined && !fcp) {
-        const valMs = round(microToMilli(fcpMetric.timing));
-        fcp = {
-          valueMs: valMs,
-          rating: rateFcp(valMs),
-        };
+    let metrics = entry?.navigation ? pageMetrics.get(entry.navigation) : undefined;
+    if (!entry?.navigation) {
+      for (const navMetrics of pageMetrics.values()) {
+        if (navMetrics.has(MetricName.LCP)) {
+          metrics = navMetrics;
+          break;
+        }
+        metrics ??= navMetrics;
       }
+    }
 
-      const lcpMetric = navMetrics.get(MetricName.LCP);
-      if (lcpMetric && lcpMetric.timing !== undefined && !lcp) {
-        const valMs = round(microToMilli(lcpMetric.timing));
-        lcp = {
-          valueMs: valMs,
-          rating: rateLcp(valMs),
-        };
-      }
+    const fcpTiming = metrics?.get(MetricName.FCP)?.timing;
+    if (fcpTiming !== undefined) {
+      const valueMs = round(microToMilli(fcpTiming));
+      fcp = { valueMs, rating: rateFcp(valueMs) };
+    }
+
+    const lcpTiming = metrics?.get(MetricName.LCP)?.timing;
+    if (lcpTiming !== undefined) {
+      const valueMs = round(microToMilli(lcpTiming));
+      lcp = { valueMs, rating: rateLcp(valueMs) };
     }
   }
 
   // Check insights for LCP URL / Element if available
-  const insightSet = getPrimaryInsightSet(parsedTrace);
-
   if (insightSet?.LCPBreakdown) {
     const lcpInsight = insightSet.LCPBreakdown;
     if (lcpInsight.lcpMs !== undefined && !lcp) {

@@ -66,10 +66,10 @@ export interface OverviewResult {
  */
 export interface LcpBreakdownInsight {
   totalLcpMs: number;
-  ttfbMs: number;
-  loadDelayMs: number;
-  loadDurationMs: number;
-  renderDelayMs: number;
+  ttfbMs: number | null;
+  loadDelayMs: number | null;
+  loadDurationMs: number | null;
+  renderDelayMs: number | null;
   lcpElement?: string;
   lcpUrl?: string;
 }
@@ -118,6 +118,7 @@ export interface ThirdPartyEntityInsight {
  */
 export interface InsightsResult {
   navigationId?: string;
+  insightSetId?: string;
   lcpBreakdown?: LcpBreakdownInsight | null;
   inpBreakdown?: InpBreakdownInsight | null;
   clsCulprits?: ClsCulpritInsight[];
@@ -223,11 +224,7 @@ export interface InteractionsResult {
 /**
  * DOM node identified as a layout shift culprit.
  */
-export interface ShiftCulprit {
-  nodeId?: number;
-  tagName?: string;
-  selector?: string;
-  debugName?: string;
+export interface ShiftCulprit extends ShiftImpactedNodeItem {
   scoreDelta?: number;
 }
 
@@ -236,6 +233,8 @@ export interface ShiftCulprit {
  */
 export interface ShiftImpactedNodeItem {
   nodeId?: number;
+  processId?: number;
+  frameId?: string;
   tagName?: string;
   selector?: string;
   debugName?: string;
