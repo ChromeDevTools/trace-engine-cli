@@ -255,6 +255,7 @@ export interface ShiftClusterItem {
  * Layout shifts analysis result.
  */
 export interface ShiftsResult {
+  warnings?: string[];
   clusters: ShiftClusterItem[];
 }
 

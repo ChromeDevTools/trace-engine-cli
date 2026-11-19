@@ -24,6 +24,9 @@ describe('Overview Extractor', () => {
     const loaded = await loadTraceFromFile(fixturePath);
     const overview = extractOverview(loaded);
 
+    assert.equal(overview.coreWebVitals.cls, null);
+    assert.ok(overview.warnings.some((warning) => warning.includes('loading category')));
+    assert.ok(overview.warnings.some((warning) => warning.includes('cpu_profiler')));
     assert.equal(overview.bounds.minMs, 1000);
     assert.equal(overview.bounds.maxMs, 1160);
     assert.equal(overview.bounds.durationMs, 160);

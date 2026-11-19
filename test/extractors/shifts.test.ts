@@ -19,12 +19,13 @@ import { extractShifts } from '../../src/engine/extractors/shifts.js';
 import { loadTraceFromFile } from '../../src/engine/loader.js';
 
 describe('Layout Shifts Extractor', () => {
-  test('extractShifts handles empty layout shift traces gracefully', async () => {
+  test('extractShifts warns when the recording has no layout shift data', async () => {
     const fixturePath = path.resolve(import.meta.dirname, '../fixtures/basic-trace.json');
     const loaded = await loadTraceFromFile(fixturePath);
 
     const result = extractShifts(loaded);
     assert.deepEqual(result.clusters, []);
+    assert.match(result.warnings?.[0] ?? '', /loading category/);
   });
 
   test('extractShifts parses cluster score and culprit elements', async () => {

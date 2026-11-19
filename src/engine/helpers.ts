@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import type { ParsedTrace } from './loader.js';
+import type { LoadedTrace, ParsedTrace } from './loader.js';
 
 type MapValue<T> = T extends Map<unknown, infer V> ? V : never;
 type RendererProcess = MapValue<NonNullable<ParsedTrace['data']['Renderer']>['processes']>;
@@ -99,6 +99,21 @@ export function getPrimaryInsightSet(
   navigationId?: string,
 ): InsightModels | null {
   return findInsightEntry(parsedTrace, navigationId)?.model ?? null;
+}
+
+export const MISSING_LAYOUT_SHIFT_DATA =
+  'No layout shift or loading-category events were recorded. Include the loading category to measure layout shifts.';
+
+export const MISSING_CPU_SAMPLES =
+  'No CPU samples were recorded for this thread. Enable JavaScript samples in DevTools or include disabled-by-default-v8.cpu_profiler.';
+
+export function hasLayoutShiftData({ rawEvents, parsedTrace }: LoadedTrace): boolean {
+  return Boolean(parsedTrace.data.LayoutShifts?.clusters.length) || rawEvents.some(
+    (event) =>
+      typeof event === 'object' && event !== null &&
+      (('name' in event && event.name === 'LayoutShift') ||
+        ('cat' in event && typeof event.cat === 'string' && event.cat.split(',').includes('loading'))),
+  );
 }
 
 /**

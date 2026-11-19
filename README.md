@@ -552,3 +552,14 @@ npm run format
 Apache-2.0
 
 Eligibility for the [Google Open Source Software Vulnerability Rewards Program](https://bughunters.google.com/open-source-security) is determined by the [Google Open Source Software Vulnerability Reward Program Rules](https://bughunters.google.com/about/rules/open-source/google-open-source-software-vulnerability-reward-program-rules).
+
+### Recording a compatible trace
+
+Save the recording from the DevTools Performance panel. For CDP recordings, send
+`Tracing.start` on a session attached to the page target. Browser-session recordings
+can omit the frame tree required for page analysis. Use `scan` to search their raw
+events.
+
+Include the `loading` category for layout shifts and
+`disabled-by-default-v8.cpu_profiler` for sampled JavaScript stacks. In the DevTools
+Performance panel, leave JavaScript samples enabled for function attribution.

@@ -14,7 +14,7 @@
 
 import { isEventInBounds, type TimeRange } from '../../utils/filter.js';
 import { microToMilli, round } from '../../utils/units.js';
-import { getPrimaryInsightSet } from '../helpers.js';
+import { getPrimaryInsightSet, hasLayoutShiftData, MISSING_LAYOUT_SHIFT_DATA } from '../helpers.js';
 import type { LoadedTrace } from '../loader.js';
 import type {
   ShiftClusterItem,
@@ -158,5 +158,6 @@ export function extractShifts(
 
   return {
     clusters,
+    ...(!hasLayoutShiftData(loadedTrace) ? { warnings: [MISSING_LAYOUT_SHIFT_DATA] } : {}),
   };
 }

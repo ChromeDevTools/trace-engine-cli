@@ -149,6 +149,14 @@ export async function loadTraceFromFile(
     };
 
     await model.parse(rawEvents as Parameters<typeof model.parse>[0]);
+  } catch (error) {
+    if (error instanceof Error && error.message === 'No frames found in trace data') {
+      throw new Error(
+        'No frames found in trace data. Record with the DevTools Performance panel or send CDP Tracing.start on a page target session. Use scan to search raw events in this file.',
+        { cause: error },
+      );
+    }
+    throw error;
   } finally {
     console.warn = origWarn;
     console.error = origError;

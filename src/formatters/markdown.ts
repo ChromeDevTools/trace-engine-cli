@@ -261,6 +261,9 @@ function formatCulpritLabel(item: {
 
 export function formatShiftsMarkdown(shifts: ShiftsResult): string {
   const lines: string[] = ['# Layout Shifts', ''];
+  if (shifts.warnings?.length) {
+    lines.push(...shifts.warnings.map((warning) => `- ${warning}`), '');
+  }
   if (shifts.clusters.length === 0) {
     lines.push('No layout shifts or clusters detected in trace.');
     return lines.join('\n');
