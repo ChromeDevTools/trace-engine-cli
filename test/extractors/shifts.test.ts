@@ -13,10 +13,14 @@
 // limitations under the License.
 
 import assert from 'node:assert/strict';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import os from 'node:os';
 import path from 'node:path';
 import test, { describe } from 'node:test';
 import { extractShifts } from '../../src/engine/extractors/shifts.js';
-import { loadTraceFromFile } from '../../src/engine/loader.js';
+import { getPropertyByPath } from '../../src/engine/helpers.js';
+import { loadTraceFromFile, parseTraceJson } from '../../src/engine/loader.js';
+import { formatResult } from '../../src/formatters/index.js';
 
 describe('Layout Shifts Extractor', () => {
   test('extractShifts warns when the recording has no layout shift data', async () => {
@@ -60,6 +64,48 @@ describe('Layout Shifts Extractor', () => {
       timeRange: { startMs: 1200, endMs: 1400 },
     });
     assert.equal(insideResult.clusters.length, 1);
+  });
+
+  test('keeps distinct culprits with missing node metadata and shows recorded rectangles', async (t) => {
+    const fixture = path.resolve(import.meta.dirname, '../fixtures/shifts-trace.json');
+    const events = parseTraceJson(await readFile(fixture, 'utf8')).filter(
+      (event) => getPropertyByPath(event, 'name') !== 'LayoutShift',
+    );
+    events.push({
+      name: 'LayoutShift',
+      cat: 'loading',
+      ph: 'I',
+      pid: 100,
+      tid: 1,
+      ts: 1300000,
+      args: {
+        frame: 'FRAME_0',
+        data: {
+          is_main_frame: true,
+          had_recent_input: false,
+          weighted_score_delta: 0.15,
+          impacted_nodes: [
+            { selector: '#first' },
+            { debug_name: 'second' },
+            { node_id: 42, old_rect: [0, 1, 40, 20], new_rect: [0, 7, 40, 20] },
+            { old_rect: [0, 2, 5, 6], new_rect: [0, 4, 5, 6] },
+            { old_rect: [0, 3, 5, 6], new_rect: [0, 5, 5, 6] },
+          ],
+        },
+      },
+    });
+    const directory = await mkdtemp(path.join(os.tmpdir(), 'trace-shifts-'));
+    t.after(() => rm(directory, { recursive: true, force: true }));
+    const file = path.join(directory, 'trace.json');
+    await writeFile(file, JSON.stringify(events));
+
+    const result = extractShifts(await loadTraceFromFile(file));
+    assert.equal(result.clusters[0].culprits.length, 5);
+    const output = formatResult(result, { format: 'md', type: 'shifts' });
+    assert.match(output, /#first/);
+    assert.match(output, /second/);
+    assert.match(output, /Node #42 \(PID 100\) \[0, 1, 40, 20\] → \[0, 7, 40, 20\]/);
+    assert.match(output, /DOM names and selectors were unavailable/);
   });
 
   test('extractShifts extracts individual events when includeEvents is true', async () => {

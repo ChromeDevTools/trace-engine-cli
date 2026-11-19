@@ -65,7 +65,8 @@ export function extractInsights(
   }
   const category = options?.category;
   const shouldInclude = (cat: string) => !category || category === cat;
-  const allowGlobalFallback = !options?.navigationId && !options?.timeRange;
+  const scopeToNavigation = Boolean(entry?.navigation || options?.navigationId);
+  const allowGlobalFallback = !scopeToNavigation && !options?.timeRange;
 
   // 1. LCP Breakdown
   if (shouldInclude('lcp') && entry) {
@@ -142,10 +143,9 @@ export function extractInsights(
   if (shouldInclude('cls')) {
     const layoutShifts = parsedTrace.data.LayoutShifts?.clusters ?? [];
     const navigationId = entry?.navigationId ?? engine.Types.Events.NO_NAVIGATION;
-    const selected = options?.navigationId
-      ? insightSet?.CLSCulprits?.clusters?.length
-        ? insightSet.CLSCulprits.clusters
-        : layoutShifts.filter((cluster) => cluster.navigationId === navigationId)
+    const selected = scopeToNavigation
+      ? (insightSet?.CLSCulprits?.clusters ??
+        layoutShifts.filter((cluster) => cluster.navigationId === navigationId))
       : layoutShifts;
     const shifts = extractShifts(loadedTrace, { timeRange: options?.timeRange }, selected);
     if (shifts.warnings) warnings.push(...shifts.warnings);

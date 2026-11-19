@@ -109,6 +109,7 @@ export function getNavigationId(navigation: InsightSet['navigation']): string | 
 
 export interface InsightEntryResult {
   insightSetId: string;
+  navigation: InsightSet['navigation'];
   navigationId?: string;
   model: InsightModels;
 }
@@ -130,7 +131,12 @@ export function findInsightEntry(
       continue;
     }
     const traceId = getNavigationId(set.navigation);
-    const entry = { insightSetId: key, navigationId: traceId, model: set.model };
+    const entry = {
+      insightSetId: key,
+      navigation: set.navigation,
+      navigationId: traceId,
+      model: set.model,
+    };
     if (navigationId) {
       if (key === navigationId || set.id === navigationId || traceId === navigationId) return entry;
       continue;

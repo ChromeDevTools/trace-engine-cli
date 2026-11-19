@@ -47,7 +47,7 @@ export function layoutShiftNodeLabel(node: ShiftCulprit): string {
 
 function getNodeDetails(node: TraceImpactedNode, shift: SyntheticLayoutShift) {
   return {
-    nodeId: node.node_id,
+    nodeId: node.node_id ?? undefined,
     processId: shift.pid,
     frameId: shift.args.frame || undefined,
     tagName: 'tag_name' in node && typeof node.tag_name === 'string' ? node.tag_name : undefined,
@@ -80,7 +80,7 @@ export function extractShifts(
       continue;
     }
 
-    const culpritMap = new Map<string, ShiftCulprit>();
+    const culpritMap = new Map<string | symbol, ShiftCulprit>();
     const individualEvents: ShiftIndividualEvent[] = [];
 
     for (const ev of cluster.events) {
@@ -88,8 +88,11 @@ export function extractShifts(
       const scoreDelta = data?.weighted_score_delta;
       const impactedNodes = (data?.impacted_nodes ?? []).map((node) => getNodeDetails(node, ev));
       for (const node of impactedNodes) {
+        const { processId, frameId, nodeId, selector, debugName, tagName } = node;
         // Backend node IDs can repeat across renderers and frames.
-        const key = JSON.stringify([node.processId, node.frameId, node.nodeId]);
+        const identity = nodeId ?? (selector || debugName || tagName || undefined);
+        const key =
+          identity === undefined ? Symbol() : JSON.stringify([processId, frameId, identity]);
         const existing = culpritMap.get(key);
         if (existing) {
           if (scoreDelta !== undefined) {
@@ -140,7 +143,7 @@ export function extractShifts(
   );
   if (missingNodeMetadata) {
     warnings.push(
-      'Some shifted nodes have only a backend node ID and recorded rectangles. DOM names and selectors were unavailable in the trace.',
+      'DOM names and selectors were unavailable for some shifted nodes. Backend node IDs and rectangles are shown when recorded.',
     );
   }
 

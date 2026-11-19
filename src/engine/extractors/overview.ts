@@ -16,7 +16,6 @@ import type { TimeRange } from '../../utils/filter.js';
 import { microToMilli, round } from '../../utils/units.js';
 import {
   findInsightEntry,
-  getNavigationId,
   getRendererThread,
   MISSING_CPU_SAMPLES,
   PAGE_TRACE_CAPTURE_HINT,
@@ -93,29 +92,27 @@ export function extractOverview(
 
   if (pageMetrics) {
     const MetricName = engine.Handlers.ModelHandlers.PageLoadMetrics.MetricName;
-    for (const [navigation, navMetrics] of pageMetrics) {
-      const fcpMetric = navMetrics.get(MetricName.FCP);
-      if (fcpMetric && fcpMetric.timing !== undefined && !fcp) {
-        const valMs = round(microToMilli(fcpMetric.timing));
-        fcp = {
-          valueMs: valMs,
-          rating: rateFcp(valMs),
-        };
+    let metrics = entry?.navigation ? pageMetrics.get(entry.navigation) : undefined;
+    if (!entry?.navigation) {
+      for (const navMetrics of pageMetrics.values()) {
+        if (navMetrics.has(MetricName.LCP)) {
+          metrics = navMetrics;
+          break;
+        }
+        metrics ??= navMetrics;
       }
+    }
 
-      const lcpMetric = navMetrics.get(MetricName.LCP);
-      if (
-        lcpMetric &&
-        lcpMetric.timing !== undefined &&
-        (!lcp ||
-          (entry?.navigationId !== undefined && getNavigationId(navigation) === entry.navigationId))
-      ) {
-        const valMs = round(microToMilli(lcpMetric.timing));
-        lcp = {
-          valueMs: valMs,
-          rating: rateLcp(valMs),
-        };
-      }
+    const fcpTiming = metrics?.get(MetricName.FCP)?.timing;
+    if (fcpTiming !== undefined) {
+      const valueMs = round(microToMilli(fcpTiming));
+      fcp = { valueMs, rating: rateFcp(valueMs) };
+    }
+
+    const lcpTiming = metrics?.get(MetricName.LCP)?.timing;
+    if (lcpTiming !== undefined) {
+      const valueMs = round(microToMilli(lcpTiming));
+      lcp = { valueMs, rating: rateLcp(valueMs) };
     }
   }
 
