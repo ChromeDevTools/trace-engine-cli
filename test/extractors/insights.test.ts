@@ -28,20 +28,18 @@ describe('Insights Extractor', () => {
 
   test('extractInsights returns structured insights result', () => {
     const result = extractInsights(loaded);
-    assert.ok(result.thirdParties);
-    assert.equal(result.thirdParties.length, 1);
-    assert.equal(result.thirdParties[0].entityName, 'example.com');
-    assert.equal(result.thirdParties[0].transferSizeBytes, 5000);
+    assert.equal(result.navigationId, 'NAV_1');
+    assert.equal(result.insightSetId, 'NAVIGATION_0');
+    assert.equal(result.lcpBreakdown, undefined);
+    assert.equal(result.thirdParties, undefined);
   });
 
   test('extractInsights routes to specific navigationId when specified', () => {
     const result = extractInsights(loaded, {
-      navigationId: 'NAV_1',
+      navigationId: 'NAVIGATION_0',
     });
     assert.equal(result.navigationId, 'NAV_1');
-    assert.ok(result.thirdParties);
-    assert.equal(result.thirdParties.length, 1);
-    assert.equal(result.thirdParties[0].entityName, 'example.com');
+    assert.equal(result.insightSetId, 'NAVIGATION_0');
   });
 
   test('extractInsights adds warning when navigationId is not found', () => {
@@ -117,7 +115,7 @@ describe('Insights Extractor', () => {
       {
         score: 0.15,
         timestampMs: 1300,
-        culpritNodes: ['Node #42'],
+        culpritNodes: ['#banner'],
       },
     ]);
   });

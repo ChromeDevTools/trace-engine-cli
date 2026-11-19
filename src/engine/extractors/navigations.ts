@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import { isTimestampInBounds, type TimeRange } from '../../utils/filter.js';
 import { microToMilli, round } from '../../utils/units.js';
 import { findInsightEntry } from '../helpers.js';
 import type { LoadedTrace } from '../loader.js';
@@ -55,7 +56,10 @@ function buildNavigationItem(
  * maps each navigation to its corresponding InsightSet ID (e.g. 'NAVIGATION_0'),
  * and determines whether the navigation belongs to the primary main frame.
  */
-export function extractNavigations(loadedTrace: LoadedTrace): NavigationsResult {
+export function extractNavigations(
+  loadedTrace: LoadedTrace,
+  timeRange?: TimeRange,
+): NavigationsResult {
   const { parsedTrace } = loadedTrace;
   const meta = parsedTrace.data.Meta;
   const navigationsMap = meta?.navigationsByNavigationId;
@@ -64,7 +68,6 @@ export function extractNavigations(loadedTrace: LoadedTrace): NavigationsResult 
   const mainFrameNavs = meta?.mainFrameNavigations;
   const insightsMap = parsedTrace.insights;
 
-  const insightSetIds: string[] = insightsMap ? Array.from(insightsMap.keys()) : [];
   const navigations: NavigationItem[] = [];
   const seenIds = new Set<string>();
 
@@ -99,11 +102,23 @@ export function extractNavigations(loadedTrace: LoadedTrace): NavigationsResult 
     }
   }
 
-  navigations.sort((a, b) => a.timestampMs - b.timestampMs);
+  const matched = navigations.filter((navigation) =>
+    isTimestampInBounds(navigation.timestampMs, timeRange),
+  );
+  matched.sort((a, b) => a.timestampMs - b.timestampMs);
+  const insightSetIds = timeRange
+    ? [
+        ...new Set(
+          matched.flatMap((navigation) =>
+            navigation.insightSetId ? [navigation.insightSetId] : [],
+          ),
+        ),
+      ]
+    : [...(insightsMap?.keys() ?? [])];
 
   return {
-    total: navigations.length,
-    navigations,
+    total: matched.length,
+    navigations: matched,
     insightSetIds,
   };
 }

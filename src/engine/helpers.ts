@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import { isEventInBounds, type TimeRange } from '../utils/filter.js';
+import { microToMilli } from '../utils/units.js';
 import type { LoadedTrace, ParsedTrace } from './loader.js';
 import type { ThreadItem } from './types.js';
 
@@ -99,52 +101,47 @@ export function rendererCpuFilter({ engine, parsedTrace }: LoadedTrace) {
   };
 }
 
+export function getNavigationId(navigation: InsightSet['navigation']): string | undefined {
+  const args = navigation?.args;
+  if (args && 'data' in args) return args.data?.navigationId;
+  return undefined;
+}
+
 export interface InsightEntryResult {
   insightSetId: string;
+  navigationId?: string;
   model: InsightModels;
 }
 
 /**
- * Finds an insight set entry matching a navigation ID or key.
+ * Finds a navigation by trace ID or InsightSet ID. When no navigation is given,
+ * prefer the main-frame load with an LCP measurement over pre-navigation activity.
  */
 export function findInsightEntry(
   parsedTrace: ParsedTrace,
   navigationId?: string,
-): InsightEntryResult | null {
-  if (!parsedTrace.insights || parsedTrace.insights.size === 0) {
-    return null;
-  }
-
-  if (navigationId) {
-    const directMatch = parsedTrace.insights.get(navigationId);
-    if (directMatch) {
-      return { insightSetId: navigationId, model: directMatch.model };
+  timeRange?: TimeRange,
+): InsightEntryResult | undefined {
+  let first: InsightEntryResult | undefined;
+  let firstNavigation: InsightEntryResult | undefined;
+  let firstWithLcp: InsightEntryResult | undefined;
+  for (const [key, set] of parsedTrace.insights ?? []) {
+    if (!isEventInBounds(microToMilli(set.bounds.min), microToMilli(set.bounds.range), timeRange)) {
+      continue;
     }
-    for (const [key, insightSet] of parsedTrace.insights.entries()) {
-      const navArgs = insightSet.navigation?.args;
-      const navEventId =
-        navArgs && 'data' in navArgs && navArgs.data ? navArgs.data.navigationId : undefined;
-      if (key === navigationId || insightSet.id === navigationId || navEventId === navigationId) {
-        return { insightSetId: key || insightSet.id || navigationId, model: insightSet.model };
-      }
+    const traceId = getNavigationId(set.navigation);
+    const entry = { insightSetId: key, navigationId: traceId, model: set.model };
+    if (navigationId) {
+      if (key === navigationId || set.id === navigationId || traceId === navigationId) return entry;
+      continue;
     }
-    return null;
+    first ??= entry;
+    if (set.navigation && set.frameId === parsedTrace.data.Meta.mainFrameId) {
+      firstNavigation ??= entry;
+      if (set.model.LCPBreakdown?.lcpMs !== undefined) firstWithLcp ??= entry;
+    }
   }
-
-  for (const [key, insightSet] of parsedTrace.insights.entries()) {
-    return { insightSetId: key || insightSet.id || '', model: insightSet.model };
-  }
-  return null;
-}
-
-/**
- * Retrieves the insight model set from the parsed trace, optionally filtered by navigation ID.
- */
-export function getPrimaryInsightSet(
-  parsedTrace: ParsedTrace,
-  navigationId?: string,
-): InsightModels | null {
-  return findInsightEntry(parsedTrace, navigationId)?.model ?? null;
+  return firstWithLcp ?? firstNavigation ?? first;
 }
 
 export const PAGE_TRACE_CAPTURE_HINT =

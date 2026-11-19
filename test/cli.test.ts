@@ -68,6 +68,17 @@ describe('CLI Dispatcher', () => {
     assert.ok(output.includes('## Main Thread Time Breakdown'));
   });
 
+  test('honors relative time ranges for navigations and insight selection', async () => {
+    const fixture = path.resolve(import.meta.dirname, 'fixtures/navigation-cwv-trace.json');
+    const args = ['node', 'trace-engine-cli'];
+    const range = ['--time-range', '0,1'];
+    assert.match(await captureCliOutput([...args, 'navigations', fixture, ...range]), /total: 0/);
+    assert.match(
+      await captureCliOutput([...args, 'insights', fixture, '--navigation', 'NAV_1', ...range]),
+      /No insights found for navigation ID: NAV_1 in the selected time range/,
+    );
+  });
+
   test('runs tasks subcommand with relative time range', async () => {
     const fixturePath = path.resolve(import.meta.dirname, 'fixtures/basic-trace.json');
     const output = await captureCliOutput([

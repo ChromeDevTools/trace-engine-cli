@@ -15,7 +15,8 @@
 import type { TimeRange } from '../../utils/filter.js';
 import { microToMilli, round } from '../../utils/units.js';
 import {
-  getPrimaryInsightSet,
+  findInsightEntry,
+  getNavigationId,
   getRendererThread,
   MISSING_CPU_SAMPLES,
   PAGE_TRACE_CAPTURE_HINT,
@@ -83,6 +84,8 @@ export function extractOverview(
   const navigationStartMs = firstNav ? round(microToMilli(firstNav.ts)) : null;
 
   // 3. Core Web Vitals
+  const entry = findInsightEntry(parsedTrace);
+  const insightSet = entry?.model;
   const pageMetrics = data.PageLoadMetrics?.metricScoresByFrameId?.get(mainFrameId);
 
   let fcp: OverviewResult['coreWebVitals']['fcp'] = null;
@@ -90,7 +93,7 @@ export function extractOverview(
 
   if (pageMetrics) {
     const MetricName = engine.Handlers.ModelHandlers.PageLoadMetrics.MetricName;
-    for (const navMetrics of pageMetrics.values()) {
+    for (const [navigation, navMetrics] of pageMetrics) {
       const fcpMetric = navMetrics.get(MetricName.FCP);
       if (fcpMetric && fcpMetric.timing !== undefined && !fcp) {
         const valMs = round(microToMilli(fcpMetric.timing));
@@ -101,7 +104,12 @@ export function extractOverview(
       }
 
       const lcpMetric = navMetrics.get(MetricName.LCP);
-      if (lcpMetric && lcpMetric.timing !== undefined && !lcp) {
+      if (
+        lcpMetric &&
+        lcpMetric.timing !== undefined &&
+        (!lcp ||
+          (entry?.navigationId !== undefined && getNavigationId(navigation) === entry.navigationId))
+      ) {
         const valMs = round(microToMilli(lcpMetric.timing));
         lcp = {
           valueMs: valMs,
@@ -112,8 +120,6 @@ export function extractOverview(
   }
 
   // Check insights for LCP URL / Element if available
-  const insightSet = getPrimaryInsightSet(parsedTrace);
-
   if (insightSet?.LCPBreakdown) {
     const lcpInsight = insightSet.LCPBreakdown;
     if (lcpInsight.lcpMs !== undefined && !lcp) {

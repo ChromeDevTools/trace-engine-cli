@@ -12,17 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import type { TimeRange } from '../../utils/filter.js';
 import { microToMilli, round } from '../../utils/units.js';
-import { getPrimaryInsightSet } from '../helpers.js';
+import { findInsightEntry } from '../helpers.js';
 import type { LoadedTrace } from '../loader.js';
 import type {
-  ClsCulpritInsight,
   InpBreakdownInsight,
   InsightsResult,
   LcpBreakdownInsight,
   RenderBlockingInsight,
   ThirdPartyEntityInsight,
 } from '../types.js';
+import { extractShifts, layoutShiftNodeLabel } from './shifts.js';
 
 /**
  * Configuration options for diagnostic insights extraction.
@@ -30,8 +31,9 @@ import type {
 export interface ExtractInsightsOptions {
   /** Filter insights by diagnostic category. Network requests are handled by extractNetwork. */
   category?: 'lcp' | 'inp' | 'cls' | 'render-blocking' | 'third-parties';
-  /** Target navigation ID or InsightSet ID. Defaults to the first InsightSet in the trace. */
+  /** Target navigation ID or InsightSet ID. Defaults to the main-frame load with LCP. */
   navigationId?: string;
+  timeRange?: TimeRange;
 }
 
 /**
@@ -41,45 +43,60 @@ export function extractInsights(
   loadedTrace: LoadedTrace,
   options?: ExtractInsightsOptions,
 ): InsightsResult {
-  const { parsedTrace } = loadedTrace;
+  const { parsedTrace, engine } = loadedTrace;
+  const entry = findInsightEntry(parsedTrace, options?.navigationId, options?.timeRange);
+  const insightSet = entry?.model;
   const result: InsightsResult = {
-    navigationId: options?.navigationId,
+    navigationId: entry?.navigationId ?? options?.navigationId,
+    insightSetId: entry?.insightSetId,
   };
   const warnings: string[] = [];
 
-  const insightSet = getPrimaryInsightSet(parsedTrace, options?.navigationId);
-  if (options?.navigationId && !insightSet) {
-    warnings.push(`No insights found for navigation ID: ${options.navigationId}`);
+  if (options?.navigationId && !entry) {
+    const rangeNote = options.timeRange ? ' in the selected time range' : '';
+    return {
+      ...result,
+      warnings: [`No insights found for navigation ID: ${options.navigationId}${rangeNote}`],
+    };
+  }
+
+  if (options?.timeRange && !entry) {
+    warnings.push('No navigation insights overlap the selected time range.');
   }
   const category = options?.category;
   const shouldInclude = (cat: string) => !category || category === cat;
-  const allowGlobalFallback = !options?.navigationId;
+  const allowGlobalFallback = !options?.navigationId && !options?.timeRange;
 
   // 1. LCP Breakdown
-  if (shouldInclude('lcp') && insightSet?.LCPBreakdown) {
-    const l = insightSet.LCPBreakdown;
-    const subparts = l.subparts;
-    // Despite the 'Ts' suffix, the trace engine emits lcpTs in milliseconds.
-    const lcpInsight: LcpBreakdownInsight = {
-      totalLcpMs: round(l.lcpMs ?? l.lcpTs ?? 0),
-      ttfbMs: subparts?.ttfb?.range ? round(microToMilli(subparts.ttfb.range)) : 0,
-      loadDelayMs: subparts?.loadDelay?.range ? round(microToMilli(subparts.loadDelay.range)) : 0,
-      loadDurationMs: subparts?.loadDuration?.range
-        ? round(microToMilli(subparts.loadDuration.range))
-        : 0,
-      renderDelayMs: subparts?.renderDelay?.range
-        ? round(microToMilli(subparts.renderDelay.range))
-        : 0,
-      lcpElement: l.lcpEvent?.args?.data?.nodeName,
-      lcpUrl: l.lcpRequest?.args?.data?.url,
-    };
-    result.lcpBreakdown = lcpInsight;
+  if (shouldInclude('lcp') && entry) {
+    const lcp = insightSet?.LCPBreakdown;
+    const subparts = lcp?.subparts;
+    if (lcp?.lcpMs !== undefined) {
+      const toMs = (range?: number) => (range === undefined ? null : round(microToMilli(range)));
+      const lcpInsight: LcpBreakdownInsight = {
+        totalLcpMs: round(lcp.lcpMs),
+        ttfbMs: toMs(subparts?.ttfb?.range),
+        loadDelayMs: toMs(subparts?.loadDelay?.range),
+        loadDurationMs: toMs(subparts?.loadDuration?.range),
+        renderDelayMs: toMs(subparts?.renderDelay?.range),
+        lcpElement: lcp.lcpEvent?.args?.data?.nodeName,
+        lcpUrl: lcp.lcpRequest?.args?.data?.url,
+      };
+      result.lcpBreakdown = lcpInsight;
 
-    if (lcpInsight.renderDelayMs > 1000) {
-      warnings.push(`High LCP element render delay: ${lcpInsight.renderDelayMs}ms.`);
-    }
-    if (lcpInsight.loadDelayMs > 1000) {
-      warnings.push(`High LCP resource load delay: ${lcpInsight.loadDelayMs}ms.`);
+      if (!subparts) {
+        warnings.push(
+          'LCP was measured, but the trace has no timing breakdown for this navigation.',
+        );
+      }
+      if ((lcpInsight.renderDelayMs ?? 0) > 1000) {
+        warnings.push(`High LCP element render delay: ${lcpInsight.renderDelayMs}ms.`);
+      }
+      if ((lcpInsight.loadDelayMs ?? 0) > 1000) {
+        warnings.push(`High LCP resource load delay: ${lcpInsight.loadDelayMs}ms.`);
+      }
+    } else if (category === 'lcp') {
+      warnings.push('No LCP was measured for this navigation.');
     }
   }
 
@@ -123,40 +140,21 @@ export function extractInsights(
 
   // 3. CLS Culprits
   if (shouldInclude('cls')) {
-    const clsList: ClsCulpritInsight[] = [];
-    const clsModel = insightSet?.CLSCulprits;
-
-    if (clsModel?.clusters && clsModel.clusters.length > 0) {
-      for (const cluster of clsModel.clusters) {
-        const score = cluster.clusterCumulativeScore ?? 0;
-        const tsMs = round(microToMilli(cluster.clusterWindow?.min ?? cluster.ts ?? 0));
-        const culpritNodes: string[] = [];
-        if (cluster.events) {
-          for (const ev of cluster.events) {
-            const nodes = ev.args?.data?.impacted_nodes || [];
-            for (const n of nodes) {
-              if (n.node_id !== undefined) culpritNodes.push(`Node #${n.node_id}`);
-            }
-          }
-        }
-        clsList.push({
-          score: round(score, 4),
-          timestampMs: tsMs,
-          culpritNodes,
-        });
-      }
-    } else if (allowGlobalFallback && parsedTrace.data.LayoutShifts?.clusters) {
-      for (const cluster of parsedTrace.data.LayoutShifts.clusters) {
-        clsList.push({
-          score: round(cluster.clusterCumulativeScore ?? 0, 4),
-          timestampMs: round(microToMilli(cluster.clusterWindow?.min ?? 0)),
-          culpritNodes: [],
-        });
-      }
-    }
-
-    if (clsList.length > 0) {
-      result.clsCulprits = clsList;
+    const layoutShifts = parsedTrace.data.LayoutShifts?.clusters ?? [];
+    const navigationId = entry?.navigationId ?? engine.Types.Events.NO_NAVIGATION;
+    const selected = options?.navigationId
+      ? insightSet?.CLSCulprits?.clusters?.length
+        ? insightSet.CLSCulprits.clusters
+        : layoutShifts.filter((cluster) => cluster.navigationId === navigationId)
+      : layoutShifts;
+    const shifts = extractShifts(loadedTrace, { timeRange: options?.timeRange }, selected);
+    if (shifts.warnings) warnings.push(...shifts.warnings);
+    if (shifts.clusters.length > 0) {
+      result.clsCulprits = shifts.clusters.map((cluster) => ({
+        score: cluster.cumulativeScore,
+        timestampMs: cluster.timestampMs,
+        culpritNodes: cluster.culprits.map(layoutShiftNodeLabel),
+      }));
     }
   }
 
@@ -180,8 +178,9 @@ export function extractInsights(
   // 5. Third Parties
   if (shouldInclude('third-parties') && insightSet?.ThirdParties) {
     const thirdParties: ThirdPartyEntityInsight[] = [];
-    const summaries = insightSet.ThirdParties.entitySummaries || [];
+    const { entitySummaries: summaries, firstPartyEntity } = insightSet.ThirdParties;
     for (const s of summaries) {
+      if (s.entity === firstPartyEntity) continue;
       thirdParties.push({
         entityName: s.entity?.name || 'Unknown',
         transferSizeBytes: s.transferSize ?? 0,
