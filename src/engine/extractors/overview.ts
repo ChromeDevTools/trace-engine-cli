@@ -17,10 +17,10 @@ import { microToMilli, round } from '../../utils/units.js';
 import {
   getMainRendererThread,
   getPrimaryInsightSet,
-  hasLayoutShiftData,
   MISSING_CPU_SAMPLES,
-  MISSING_LAYOUT_SHIFT_DATA,
   PAGE_TRACE_CAPTURE_HINT,
+  shouldWarnAboutLayoutShiftCapture,
+  UNCONFIRMED_LAYOUT_SHIFT_CAPTURE,
 } from '../helpers.js';
 import type { LoadedTrace } from '../loader.js';
 import type { CwvRating, OverviewResult } from '../types.js';
@@ -135,8 +135,8 @@ export function extractOverview(
   // CLS
   let cls: OverviewResult['coreWebVitals']['cls'] = null;
   const layoutShifts = data.LayoutShifts;
-  const hasShiftData = hasLayoutShiftData(loadedTrace);
-  if (layoutShifts && hasShiftData) {
+  const warnAboutShiftCapture = shouldWarnAboutLayoutShiftCapture(loadedTrace);
+  if (layoutShifts && !warnAboutShiftCapture) {
     const score = layoutShifts.sessionMaxScore ?? 0;
     const worstCluster = layoutShifts.clusters?.[0]?.clusterCumulativeScore;
     cls = {
@@ -245,7 +245,7 @@ export function extractOverview(
   // 5. Warnings
   const warnings: string[] = [];
   if (!hasMainFrame) warnings.push(`No main page frame found. ${PAGE_TRACE_CAPTURE_HINT}`);
-  if (!hasShiftData) warnings.push(MISSING_LAYOUT_SHIFT_DATA);
+  if (warnAboutShiftCapture) warnings.push(UNCONFIRMED_LAYOUT_SHIFT_CAPTURE);
   if (mainThread && !mainThread.profileCalls.length) warnings.push(MISSING_CPU_SAMPLES);
   if (fcp && fcp.rating === 'poor') {
     warnings.push(`Poor First Contentful Paint: ${fcp.valueMs}ms (threshold: 1800ms)`);

@@ -14,7 +14,11 @@
 
 import { isEventInBounds, type TimeRange } from '../../utils/filter.js';
 import { microToMilli, round } from '../../utils/units.js';
-import { getPrimaryInsightSet, hasLayoutShiftData, MISSING_LAYOUT_SHIFT_DATA } from '../helpers.js';
+import {
+  getPrimaryInsightSet,
+  shouldWarnAboutLayoutShiftCapture,
+  UNCONFIRMED_LAYOUT_SHIFT_CAPTURE,
+} from '../helpers.js';
 import type { LoadedTrace } from '../loader.js';
 import type {
   ShiftClusterItem,
@@ -157,6 +161,8 @@ export function extractShifts(
   clusters.sort((a, b) => b.cumulativeScore - a.cumulativeScore);
 
   const result: ShiftsResult = { clusters };
-  if (!hasLayoutShiftData(loadedTrace)) result.warnings = [MISSING_LAYOUT_SHIFT_DATA];
+  if (shouldWarnAboutLayoutShiftCapture(loadedTrace)) {
+    result.warnings = [UNCONFIRMED_LAYOUT_SHIFT_CAPTURE];
+  }
   return result;
 }

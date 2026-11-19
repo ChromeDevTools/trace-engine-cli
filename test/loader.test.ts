@@ -81,7 +81,7 @@ describe('Trace Loader', () => {
     const dir = await mkdtemp(path.join(os.tmpdir(), 'trace-cli-'));
     t.after(() => rm(dir, { recursive: true, force: true }));
     const file = path.join(dir, 'browser.json');
-    await writeFile(file, JSON.stringify([{
+    const tracingStarted = {
       name: 'TracingStartedInBrowser',
       cat: 'disabled-by-default-devtools.timeline',
       ph: 'I',
@@ -89,7 +89,8 @@ describe('Trace Loader', () => {
       tid: 1,
       ts: 1000,
       args: {},
-    }]));
+    };
+    await writeFile(file, JSON.stringify([tracingStarted]));
 
     await assert.rejects(() => loadTraceFromFile(file), { message: /page target session.*scan/ });
   });

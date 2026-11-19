@@ -319,7 +319,7 @@ describe('CLI Dispatcher', () => {
     const dir = await mkdtemp(path.join(os.tmpdir(), 'trace-cli-'));
     t.after(() => rm(dir, { recursive: true, force: true }));
     const file = path.join(dir, 'no-frames.json');
-    await writeFile(file, JSON.stringify([{
+    const tracingStarted = {
       name: 'TracingStartedInBrowser',
       cat: 'disabled-by-default-devtools.timeline',
       ph: 'I',
@@ -327,7 +327,8 @@ describe('CLI Dispatcher', () => {
       tid: 1,
       ts: 1000,
       args: { data: { frames: [] } },
-    }]));
+    };
+    await writeFile(file, JSON.stringify([tracingStarted]));
 
     const args = ['node', 'trace-engine-cli', 'overview'];
     const validFixture = path.resolve(import.meta.dirname, 'fixtures/basic-trace.json');
@@ -335,6 +336,9 @@ describe('CLI Dispatcher', () => {
 
     const output = await captureCliOutput([...args, file]);
     assert.match(output, /^mainUrl: null$/m);
-    assert.match(output, /No main page frame found.*DevTools Performance panel.*page target session/);
+    assert.match(
+      output,
+      /No main page frame found.*DevTools Performance panel.*page target session/,
+    );
   });
 });
