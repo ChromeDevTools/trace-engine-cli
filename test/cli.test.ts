@@ -104,6 +104,110 @@ describe('CLI Dispatcher', () => {
     await assert.rejects(() => captureCliOutput(args), /Unknown report section "unknown"/);
   });
 
+  test('applies report task and network limits like the standalone commands', async () => {
+    const fixture = path.resolve(import.meta.dirname, 'fixtures/navigation-cwv-trace.json');
+    const cli = ['node', 'trace-engine-cli'];
+    const format = ['-f', 'json'];
+    const json = JSON.parse(
+      await captureCliOutput([
+        ...cli,
+        'report',
+        fixture,
+        '--sections',
+        'tasks,network',
+        '--tasks-tree',
+        'bottom-up',
+        '--tasks-top',
+        '1',
+        '--network-top',
+        '1',
+        ...format,
+      ]),
+    );
+    const tasks = await captureCliOutput([
+      ...cli,
+      'tasks',
+      fixture,
+      '--tree',
+      'bottom-up',
+      '--top',
+      '1',
+      ...format,
+    ]);
+    const network = await captureCliOutput([
+      ...cli,
+      'network',
+      fixture,
+      '--slowest',
+      '1',
+      ...format,
+    ]);
+    assert.deepEqual(json, { tasks: JSON.parse(tasks), network: JSON.parse(network) });
+    assert.equal(json.tasks.mode, 'bottom-up');
+    assert.equal(json.tasks.tasks.length, 1);
+    assert.equal(json.network.requests.length, 1);
+  });
+
+  test('returns every request when the report network limit exceeds the request count', async () => {
+    const fixture = path.resolve(import.meta.dirname, 'fixtures/navigation-cwv-trace.json');
+    const json = JSON.parse(
+      await captureCliOutput([
+        'node',
+        'trace-engine-cli',
+        'report',
+        fixture,
+        '--sections',
+        'network',
+        '--network-top',
+        '1000000',
+        '-f',
+        'json',
+      ]),
+    );
+    assert.equal(json.network.requests.length, 4);
+  });
+
+  test('applies the selected renderer thread to the report tasks tree', async () => {
+    const fixture = path.resolve(import.meta.dirname, 'fixtures/navigation-cwv-trace.json');
+    const cli = ['node', 'trace-engine-cli'];
+    const options = ['--thread', '100:1', '-f', 'json'];
+    const report = await captureCliOutput([
+      ...cli,
+      'report',
+      fixture,
+      '--sections',
+      'tasks',
+      '--tasks-tree',
+      'bottom-up',
+      ...options,
+    ]);
+    const tasks = await captureCliOutput([
+      ...cli,
+      'tasks',
+      fixture,
+      '--tree',
+      'bottom-up',
+      ...options,
+    ]);
+    assert.deepEqual(JSON.parse(report), { tasks: JSON.parse(tasks) });
+  });
+
+  test('rejects invalid report task and network options before parsing the trace', async () => {
+    const cli = ['node', 'trace-engine-cli', 'report', 'unavailable.json'];
+    await assert.rejects(
+      () => captureCliOutput([...cli, '--tasks-top', '0']),
+      /Result limits must be positive integers/,
+    );
+    await assert.rejects(
+      () => captureCliOutput([...cli, '--network-top', '1.5']),
+      /Result limits must be positive integers/,
+    );
+    await assert.rejects(
+      () => captureCliOutput([...cli, '--tasks-tree', 'sideways']),
+      /Invalid values:[\s\S]*tasks-tree[\s\S]*sideways/,
+    );
+  });
+
   test('honors relative time ranges for navigations and insight selection', async () => {
     const fixture = path.resolve(import.meta.dirname, 'fixtures/navigation-cwv-trace.json');
     const args = ['node', 'trace-engine-cli'];
