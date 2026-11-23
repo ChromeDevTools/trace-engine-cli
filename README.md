@@ -101,7 +101,7 @@ Use `trace-engine-cli` to inspect, profile, and diagnose performance recordings 
 ## 3. Command Reference
 
 ### `trace-engine-cli <file>` / `trace-engine-cli overview <file>`
-High-level trace metadata, duration, Core Web Vitals (LCP, INP, CLS), and main-thread category breakdown (Scripting, Layout, Rendering, GC, System, Idle). Calling `trace-engine-cli <file>` without `overview` also prints the `# Drill-down commands:` reference footer.
+High-level trace metadata, duration, Core Web Vitals (LCP, INP, CLS), and a breakdown of main-thread time by category. Calling `trace-engine-cli <file>` without `overview` also prints the `# Drill-down commands:` reference footer.
 ```bash
 trace-engine-cli trace.json.gz
 ```
