@@ -51,9 +51,12 @@ export interface OverviewResult {
   };
   mainThreadBreakdown: {
     scriptingMs: number;
+    styleMs: number;
     layoutMs: number;
-    renderingMs: number;
+    paintMs: number;
+    compositeMs: number;
     gcMs: number;
+    interruptMs: number;
     systemMs: number;
     idleMs: number;
     totalMs: number;

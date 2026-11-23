@@ -36,12 +36,15 @@ describe('Overview Extractor', () => {
     assert.equal(overview.mainUrl, 'https://example.com/test');
     assert.equal(overview.navigationStartMs, 1050);
     assert.deepEqual(overview.mainThreadBreakdown, {
+      scriptingMs: 0,
+      styleMs: 0,
+      layoutMs: 0,
+      paintMs: 0,
+      compositeMs: 0,
+      gcMs: 0,
+      interruptMs: 0,
       systemMs: 60,
       idleMs: 100,
-      scriptingMs: 0,
-      layoutMs: 0,
-      renderingMs: 0,
-      gcMs: 0,
       totalMs: 160,
     });
   });
@@ -67,21 +70,67 @@ describe('Overview Extractor', () => {
     assert.ok(overview.warnings.includes('1 render-blocking resource(s) detected.'));
     assert.deepEqual(overview.mainThreadBreakdown, {
       scriptingMs: 70,
+      styleMs: 0,
       layoutMs: 20,
-      renderingMs: 10,
+      paintMs: 10,
+      compositeMs: 0,
       gcMs: 25,
+      interruptMs: 0,
       systemMs: 65,
       idleMs: 4010,
       totalMs: 4200,
     });
     const activeAndIdleSum =
       overview.mainThreadBreakdown.scriptingMs +
+      overview.mainThreadBreakdown.styleMs +
       overview.mainThreadBreakdown.layoutMs +
-      overview.mainThreadBreakdown.renderingMs +
+      overview.mainThreadBreakdown.paintMs +
+      overview.mainThreadBreakdown.compositeMs +
       overview.mainThreadBreakdown.gcMs +
+      overview.mainThreadBreakdown.interruptMs +
       overview.mainThreadBreakdown.systemMs +
       overview.mainThreadBreakdown.idleMs;
     assert.equal(activeAndIdleSum, overview.mainThreadBreakdown.totalMs);
+  });
+
+  test('splits render work and V8 API interrupts into exclusive categories', async () => {
+    const fixture = path.resolve(import.meta.dirname, '../fixtures/render-kinds-trace.json');
+    const loaded = await loadTraceFromFile(fixture);
+    const b = extractOverview(loaded, { threadId: '100:1' }).mainThreadBreakdown;
+
+    assert.equal(b.scriptingMs, 6);
+    assert.equal(b.styleMs, 4);
+    assert.equal(b.layoutMs, 3);
+    assert.equal(b.paintMs, 4);
+    assert.equal(b.compositeMs, 2);
+    assert.equal(b.gcMs, 0);
+    assert.equal(b.interruptMs, 5);
+    assert.equal(b.systemMs, 6);
+    assert.equal(b.idleMs, 10);
+    assert.equal(
+      b.scriptingMs +
+        b.styleMs +
+        b.layoutMs +
+        b.paintMs +
+        b.compositeMs +
+        b.gcMs +
+        b.interruptMs +
+        b.systemMs +
+        b.idleMs,
+      b.totalMs,
+    );
+  });
+
+  test('keeps a fractional window fully accounted for after rounding', async () => {
+    const fixture = path.resolve(import.meta.dirname, '../fixtures/render-kinds-trace.json');
+    const loaded = await loadTraceFromFile(fixture);
+    const b = extractOverview(loaded, {
+      timeRange: { startMs: 1017.994, endMs: 1018.006 },
+    }).mainThreadBreakdown;
+
+    assert.equal(b.idleMs, 0);
+    assert.equal(b.totalMs, 0.01);
+    assert.equal(b.layoutMs + b.paintMs, b.totalMs);
   });
 
   test('keeps timeline categories stable when CPU samples add nested calls', async (t) => {

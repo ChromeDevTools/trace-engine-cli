@@ -60,10 +60,13 @@ describe('Markdown Formatter', () => {
       },
       mainThreadBreakdown: {
         scriptingMs: 200,
-        layoutMs: 100,
-        renderingMs: 50,
+        styleMs: 40,
+        layoutMs: 60,
+        paintMs: 35,
+        compositeMs: 15,
         gcMs: 20,
-        systemMs: 50,
+        interruptMs: 20,
+        systemMs: 30,
         idleMs: 580,
         totalMs: 1000,
       },
@@ -77,6 +80,11 @@ describe('Markdown Formatter', () => {
     assert.ok(output.includes('| FCP | 200ms | good | - |'));
     assert.ok(output.includes('## Main Thread Time Breakdown'));
     assert.ok(output.includes('| Scripting | 200ms | 20.0% |'));
+    assert.ok(output.includes('| Style | 40ms | 4.0% |'));
+    assert.ok(output.includes('| Paint | 35ms | 3.5% |'));
+    assert.ok(output.includes('| Composite | 15ms | 1.5% |'));
+    assert.ok(output.includes('| Interrupts (tracer, throttling) | 20ms | 2.0% |'));
+    assert.ok(!output.includes('| Rendering |'));
     assert.ok(output.includes('## Warnings & Diagnostics'));
   });
 
