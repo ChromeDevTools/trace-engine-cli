@@ -96,6 +96,7 @@ trace-engine-cli/
 - The `scan` command does not invoke DevTools Trace Engine models or calculate relative trace bounds.
 - Use substring pre-filtering on decompressed trace buffers before `JSON.parse` to avoid parsing non-matching files.
 - `firstEventTsMs` in scan results reports raw absolute trace timestamps normalized to milliseconds, not offsets relative to trace start.
+- Report files that cannot be read, decompressed or parsed in `skippedFiles`. Never drop them silently.
 
 ---
 

@@ -214,6 +214,7 @@ trace-engine-cli scan "fixtures/**/*.json.gz" --grep "LayerTreeHostImpl"
 # Filter by category and phase across multiple files
 trace-engine-cli scan fixtures/traces/ --cat devtools.timeline --phase X
 ```
+Check `skippedFiles` in the result. Scan did not search the files in that list, so a match can be missing from them.
 
 ---
 
@@ -544,6 +545,8 @@ trace-engine-cli scan "traces/*.json.gz" --cat devtools.timeline --top 10
 # Find traces containing specific payload fields
 trace-engine-cli scan fixtures/ --name TracingStartedInBrowser --fields args.data.frames
 ```
+
+Files that scan cannot read, decompress or parse are listed in `skippedFiles` with the reason. Scan continues with the other files. A file with invalid JSON is only reported when its text contains the query, because a file without the query text cannot match.
 
 ---
 
