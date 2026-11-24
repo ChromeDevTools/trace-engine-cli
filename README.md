@@ -274,10 +274,17 @@ trace-engine-cli --help
 | Option | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
 | `-f, --format` | `'toon' \| 'md' \| 'json'` | `'toon'` | Output serialization format |
-| `--time-range` | `string` | — | Filter window relative to trace start (e.g. `"3500,4200"`, `"3.5s,4.2s"`, `"100ms-500ms"`) |
-| `--absolute-timestamps` | `boolean` | `false` | Treat time ranges as raw absolute trace timestamps rather than relative to trace start |
 | `--trace-engine`| `string` | — | Path to a custom DevTools trace engine bundle |
 | `--help` | `boolean` | — | Show help and synopsis |
+
+### Time Range Options
+
+All commands except `threads`, `diff` and `scan` accept these options. `diff` accepts `--absolute-timestamps` for its `--window-a` and `--window-b` values. `threads` and `scan` reject both options.
+
+| Option | Type | Default | Description |
+| :--- | :--- | :--- | :--- |
+| `--time-range` | `string` | — | Filter window relative to trace start (e.g. `"3500,4200"`, `"3.5s,4.2s"`, `"100ms-500ms"`) |
+| `--absolute-timestamps` | `boolean` | `false` | Treat time ranges as raw absolute trace timestamps rather than relative to trace start |
 
 ---
 
@@ -433,6 +440,8 @@ trace-engine-cli profile trace.json.gz --time-range "3.5s,4.1s"
 # Specify 50ms bucket slices and top 5 functions per slice
 trace-engine-cli profile trace.json.gz --time-range "3500ms,4100ms" --bucket 50ms --top 5
 ```
+
+`--bucket` must be at least `0.01ms`. A profile can have a maximum of 1000 buckets. If the time range divided by the bucket size is more than 1000, the command fails and shows the smallest valid bucket size.
 
 ---
 

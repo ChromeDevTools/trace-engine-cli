@@ -18,6 +18,9 @@ import { getRendererThread, MISSING_CPU_SAMPLES, rendererCpuFilter } from '../he
 import type { LoadedTrace } from '../loader.js';
 import type { ProfileResult } from '../types.js';
 
+export const MIN_BUCKET_MS = 0.01;
+export const MAX_BUCKETS = 1000;
+
 export interface ExtractProfileOptions {
   threadId?: string;
   timeRange?: TimeRange;
@@ -40,8 +43,22 @@ export function extractProfile(
   const endMs = options?.timeRange ? options.timeRange.endMs : round(microToMilli(traceBounds.max));
 
   const totalRangeMs = Math.max(1, endMs - startMs);
-  const bucketSizeMs = options?.bucketMs ?? Math.max(10, round(totalRangeMs / 20));
+  if (options?.bucketMs !== undefined && options.bucketMs < MIN_BUCKET_MS) {
+    throw new Error(
+      `Bucket size ${options.bucketMs}ms is below the minimum of ${MIN_BUCKET_MS}ms.`,
+    );
+  }
+  const bucketSizeMs = round(options?.bucketMs ?? Math.max(10, totalRangeMs / 20));
   const topCount = options?.top ?? 3;
+
+  const rangeMs = endMs - startMs;
+  if (bucketSizeMs < rangeMs / MAX_BUCKETS) {
+    const bucketCount = Math.ceil(rangeMs / bucketSizeMs);
+    const minBucketMs = Math.ceil((rangeMs / MAX_BUCKETS) * 100) / 100;
+    throw new Error(
+      `Bucket size ${bucketSizeMs}ms creates ${bucketCount} buckets over ${round(rangeMs)}ms. The maximum is ${MAX_BUCKETS}. Use a bucket size of at least ${minBucketMs}ms.`,
+    );
+  }
 
   const result: ProfileResult = {
     threadId: options?.threadId,
