@@ -13,7 +13,7 @@
 // limitations under the License.
 
 import type { TimeRange } from '../../utils/filter.js';
-import { microToMilli, round } from '../../utils/units.js';
+import { microToMilli, milliToMicro, round } from '../../utils/units.js';
 import { getRendererThread, MISSING_CPU_SAMPLES, rendererCpuFilter } from '../helpers.js';
 import type { LoadedTrace } from '../loader.js';
 import type { ProfileResult } from '../types.js';
@@ -66,8 +66,8 @@ export function extractProfile(
     const bottomUp = new engine.Extras.TraceTree.BottomUpRootNode(mainThread.entries, {
       textFilter: { accept: () => true },
       filters: [cpuFilter],
-      startTime: engine.Types.Timing.Milli(currentStart),
-      endTime: engine.Types.Timing.Milli(currentEnd),
+      startTime: engine.Types.Timing.Micro(milliToMicro(currentStart)),
+      endTime: engine.Types.Timing.Micro(milliToMicro(currentEnd)),
     });
 
     const funcList: Array<{ name: string; url?: string; selfTimeMs: number }> = [];
@@ -82,11 +82,12 @@ export function extractProfile(
       // Exclude generic root markers from active work
       if (fnName === '(root)' || fnName === '(idle)') continue;
 
-      totalActiveMs += node.selfTime;
+      const selfTimeMs = microToMilli(node.selfTime);
+      totalActiveMs += selfTimeMs;
       funcList.push({
         name: fnName,
         url: frame?.url || undefined,
-        selfTimeMs: round(node.selfTime),
+        selfTimeMs: round(selfTimeMs),
       });
     }
 

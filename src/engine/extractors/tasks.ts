@@ -13,7 +13,7 @@
 // limitations under the License.
 
 import { isEventInBounds, type TimeRange } from '../../utils/filter.js';
-import { microToMilli, round } from '../../utils/units.js';
+import { microToMilli, milliToMicro, round } from '../../utils/units.js';
 import { getRendererThread, MISSING_CPU_SAMPLES, rendererCpuFilter } from '../helpers.js';
 import type { LoadedTrace } from '../loader.js';
 import type { TaskItem, TasksResult } from '../types.js';
@@ -52,8 +52,10 @@ export function extractTasks(loadedTrace: LoadedTrace, options?: ExtractTasksOpt
 
   const traceBounds = parsedTrace.data.Meta.traceBounds;
   const treeOptions = {
-    startTime: engine.Types.Timing.Milli(timeRange?.startMs ?? microToMilli(traceBounds.min)),
-    endTime: engine.Types.Timing.Milli(timeRange?.endMs ?? microToMilli(traceBounds.max)),
+    startTime: engine.Types.Timing.Micro(
+      timeRange ? milliToMicro(timeRange.startMs) : traceBounds.min,
+    ),
+    endTime: engine.Types.Timing.Micro(timeRange ? milliToMicro(timeRange.endMs) : traceBounds.max),
   };
   const traceTree = engine.Extras.TraceTree;
   const cpuFilter = rendererCpuFilter(loadedTrace);
@@ -68,8 +70,8 @@ export function extractTasks(loadedTrace: LoadedTrace, options?: ExtractTasksOpt
     );
     return {
       startTimeMs: round(microToMilli(firstTs)),
-      durationMs: round(node.totalTime),
-      selfTimeMs: round(node.selfTime),
+      durationMs: round(microToMilli(node.totalTime)),
+      selfTimeMs: round(microToMilli(node.selfTime)),
       functionName: frame?.functionName || node.event.name,
       url: frame?.url || undefined,
       lineNumber: frame?.lineNumber,
@@ -87,7 +89,7 @@ export function extractTasks(loadedTrace: LoadedTrace, options?: ExtractTasksOpt
     const candidates: Array<{ node: TreeNode; score: number }> = [];
     for (const node of bottomUp.children().values()) {
       if (node.selfTime > 0 && (!urlOnly || traceTree.eventStackFrame(node.event)?.url)) {
-        candidates.push({ node, score: round(node.selfTime) });
+        candidates.push({ node, score: round(microToMilli(node.selfTime)) });
         // Trim in batches to bound memory and sort work for a small --top.
         if (candidates.length === top * 2) rankAndLimit(candidates, top);
       }
