@@ -29,11 +29,7 @@ function buildNavigationItem(
   isMainFrame: boolean,
   parsedTrace: LoadedTrace['parsedTrace'],
 ): NavigationItem {
-  const url =
-    finalUrls?.get(navId) ||
-    navEvent?.args.data?.documentLoaderURL ||
-    navEvent?.args.data?.url ||
-    '';
+  const url = finalUrls?.get(navId) || navEvent?.args.data?.documentLoaderURL || '';
   const frameId = navEvent?.args.frame;
   const tsMs = round(microToMilli(navEvent?.ts ?? 0));
   const insightEntry = findInsightEntry(parsedTrace, navId);

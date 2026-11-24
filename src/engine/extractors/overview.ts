@@ -13,7 +13,7 @@
 // limitations under the License.
 
 import type { TimeRange } from '../../utils/filter.js';
-import { microToMilli, round } from '../../utils/units.js';
+import { microToMilli, milliToMicro, round } from '../../utils/units.js';
 import {
   findInsightEntry,
   getRendererThread,
@@ -196,13 +196,14 @@ export function extractOverview(
             !engine.Types.Events.isPhaseAsync(event.ph),
         },
       ],
-      startTime: engine.Types.Timing.Milli(minMs),
-      endTime: engine.Types.Timing.Milli(maxMs),
+      startTime: engine.Types.Timing.Micro(milliToMicro(minMs)),
+      endTime: engine.Types.Timing.Micro(milliToMicro(maxMs)),
     });
 
     const children = bottomUp.children();
     for (const node of children.values()) {
       if (node.selfTime <= 0) continue;
+      const selfTimeMs = microToMilli(node.selfTime);
       const name = node.event?.name || String(node.id) || '';
 
       if (
@@ -211,9 +212,9 @@ export function extractOverview(
         name === 'GCEvent' ||
         name.toLowerCase().startsWith('v8.gc')
       ) {
-        breakdown.gcMs += node.selfTime;
+        breakdown.gcMs += selfTimeMs;
       } else if (name === 'Layout' || name === 'UpdateLayoutTree' || name === 'InvalidateLayout') {
-        breakdown.layoutMs += node.selfTime;
+        breakdown.layoutMs += selfTimeMs;
       } else if (
         name === 'UpdateLayerTree' ||
         name === 'Layerize' ||
@@ -222,7 +223,7 @@ export function extractOverview(
         name === 'RasterTask' ||
         name === 'DecodeImage'
       ) {
-        breakdown.renderingMs += node.selfTime;
+        breakdown.renderingMs += selfTimeMs;
       } else if (
         name === 'EvaluateScript' ||
         name === 'FunctionCall' ||
@@ -234,9 +235,9 @@ export function extractOverview(
         name === 'FireAnimationFrame' ||
         name === 'EventDispatch'
       ) {
-        breakdown.scriptingMs += node.selfTime;
+        breakdown.scriptingMs += selfTimeMs;
       } else {
-        breakdown.systemMs += node.selfTime;
+        breakdown.systemMs += selfTimeMs;
       }
     }
   }
