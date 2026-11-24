@@ -34,7 +34,7 @@ import { extractScheduling } from './engine/extractors/scheduling.js';
 import { extractShifts } from './engine/extractors/shifts.js';
 import { extractTasks } from './engine/extractors/tasks.js';
 import { listRendererThreads } from './engine/helpers.js';
-import { loadTraceFromFile } from './engine/loader.js';
+import { loadTraceFromFile, STDIN_PATH } from './engine/loader.js';
 import type { ThreadsResult } from './engine/types.js';
 import { type FormatOptions, formatResult } from './formatters/index.js';
 import { parseTimeRange, parseTimeValue, resolveTimeRange } from './utils/filter.js';
@@ -83,10 +83,28 @@ function parseReportSections(value?: string): ReportSection[] {
   });
 }
 
+// yargs re-parses positionals as `--file -` and never takes a lone `-` as a value.
+const STDIN_ARG_PLACEHOLDER = '\0stdin';
+
+function protectStdinArg(arg: string): string {
+  return arg === STDIN_PATH ? STDIN_ARG_PLACEHOLDER : arg;
+}
+
+function restoreStdinArg(argv: Record<string, unknown>): void {
+  for (const [key, value] of Object.entries(argv)) {
+    if (value === STDIN_ARG_PLACEHOLDER) {
+      argv[key] = STDIN_PATH;
+    } else if (Array.isArray(value)) {
+      argv[key] = value.map((item) => (item === STDIN_ARG_PLACEHOLDER ? STDIN_PATH : item));
+    }
+  }
+}
+
 export async function runCli(argv: string[]): Promise<void> {
-  const cli = yargs(hideBin(argv))
+  const cli = yargs(hideBin(argv).map(protectStdinArg))
     .scriptName('trace-engine-cli')
     .usage('$0 [command] <file> [options]')
+    .middleware(restoreStdinArg)
     .option('format', {
       alias: 'f',
       type: 'string',
@@ -114,7 +132,7 @@ export async function runCli(argv: string[]): Promise<void> {
       'High-level trace metadata, Core Web Vitals, and main thread category breakdown (default command)',
       (y) =>
         y.option('thread', THREAD_OPTION).positional('file', {
-          describe: 'Path to trace file (.json or .json.gz)',
+          describe: 'Path to trace file (.json or .json.gz), or - to read from stdin',
           type: 'string',
           demandOption: true,
         }),
@@ -146,7 +164,7 @@ export async function runCli(argv: string[]): Promise<void> {
       (y) =>
         y
           .positional('file', {
-            describe: 'Path to trace file (.json or .json.gz)',
+            describe: 'Path to trace file (.json or .json.gz), or - to read from stdin',
             type: 'string',
             demandOption: true,
           })
@@ -187,7 +205,7 @@ export async function runCli(argv: string[]): Promise<void> {
       'List renderer threads, their frame URLs, and CPU sample availability',
       (y) =>
         y.positional('file', {
-          describe: 'Path to trace file (.json or .json.gz)',
+          describe: 'Path to trace file (.json or .json.gz), or - to read from stdin',
           type: 'string',
           demandOption: true,
         }),
@@ -203,7 +221,7 @@ export async function runCli(argv: string[]): Promise<void> {
       (y) =>
         y
           .positional('file', {
-            describe: 'Path to trace file (.json or .json.gz)',
+            describe: 'Path to trace file (.json or .json.gz), or - to read from stdin',
             type: 'string',
             demandOption: true,
           })
@@ -253,7 +271,7 @@ export async function runCli(argv: string[]): Promise<void> {
         y
           .option('thread', THREAD_OPTION)
           .positional('file', {
-            describe: 'Path to trace file (.json or .json.gz)',
+            describe: 'Path to trace file (.json or .json.gz), or - to read from stdin',
             type: 'string',
             demandOption: true,
           })
@@ -313,7 +331,7 @@ export async function runCli(argv: string[]): Promise<void> {
         y
           .option('thread', THREAD_OPTION)
           .positional('file', {
-            describe: 'Path to trace file (.json or .json.gz)',
+            describe: 'Path to trace file (.json or .json.gz), or - to read from stdin',
             type: 'string',
             demandOption: true,
           })
@@ -366,7 +384,7 @@ export async function runCli(argv: string[]): Promise<void> {
         y
           .option('thread', THREAD_OPTION)
           .positional('file', {
-            describe: 'Path to trace file (.json or .json.gz)',
+            describe: 'Path to trace file (.json or .json.gz), or - to read from stdin',
             type: 'string',
             demandOption: true,
           })
@@ -418,7 +436,7 @@ export async function runCli(argv: string[]): Promise<void> {
         y
           .option('thread', THREAD_OPTION)
           .positional('file', {
-            describe: 'Path to trace file (.json or .json.gz)',
+            describe: 'Path to trace file (.json or .json.gz), or - to read from stdin',
             type: 'string',
             demandOption: true,
           })
@@ -477,7 +495,7 @@ export async function runCli(argv: string[]): Promise<void> {
       'Async task and animation frame scheduling, cancellation, and churn metrics',
       (y) =>
         y.positional('file', {
-          describe: 'Path to trace file (.json or .json.gz)',
+          describe: 'Path to trace file (.json or .json.gz), or - to read from stdin',
           type: 'string',
           demandOption: true,
         }),
@@ -507,7 +525,7 @@ export async function runCli(argv: string[]): Promise<void> {
       (y) =>
         y
           .positional('file', {
-            describe: 'Path to trace file (.json or .json.gz)',
+            describe: 'Path to trace file (.json or .json.gz), or - to read from stdin',
             type: 'string',
             demandOption: true,
           })
@@ -563,7 +581,7 @@ export async function runCli(argv: string[]): Promise<void> {
       'User interaction latencies and target DOM elements',
       (y) =>
         y.positional('file', {
-          describe: 'Path to trace file (.json or .json.gz)',
+          describe: 'Path to trace file (.json or .json.gz), or - to read from stdin',
           type: 'string',
           demandOption: true,
         }),
@@ -593,7 +611,7 @@ export async function runCli(argv: string[]): Promise<void> {
       (y) =>
         y
           .positional('file', {
-            describe: 'Path to trace file (.json or .json.gz)',
+            describe: 'Path to trace file (.json or .json.gz), or - to read from stdin',
             type: 'string',
             demandOption: true,
           })
@@ -631,7 +649,7 @@ export async function runCli(argv: string[]): Promise<void> {
       (y) =>
         y
           .positional('file', {
-            describe: 'Path to trace file (.json or .json.gz)',
+            describe: 'Path to trace file (.json or .json.gz), or - to read from stdin',
             type: 'string',
             demandOption: true,
           })
@@ -697,7 +715,7 @@ export async function runCli(argv: string[]): Promise<void> {
       'List all navigations in the trace and their InsightSet mappings',
       (y) =>
         y.positional('file', {
-          describe: 'Path to trace file (.json or .json.gz)',
+          describe: 'Path to trace file (.json or .json.gz), or - to read from stdin',
           type: 'string',
           demandOption: true,
         }),

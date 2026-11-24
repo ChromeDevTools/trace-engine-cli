@@ -13,6 +13,8 @@
 // limitations under the License.
 
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -440,5 +442,20 @@ describe('CLI Dispatcher', () => {
       output,
       /No main page frame found.*DevTools Performance panel.*page target session/,
     );
+  });
+});
+
+describe('CLI stdin input', () => {
+  test('reads a piped trace when the file argument is -', () => {
+    const repoRoot = path.resolve(import.meta.dirname, '..');
+    const fixturePath = path.resolve(import.meta.dirname, 'fixtures/basic-trace.json.gz');
+    const result = spawnSync(
+      process.execPath,
+      ['--import', 'tsx/esm', 'bin/trace-engine-cli.ts', 'overview', '-', '--format', 'json'],
+      { cwd: repoRoot, input: readFileSync(fixturePath), encoding: 'utf-8' },
+    );
+
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(JSON.parse(result.stdout).mainUrl, 'https://example.com/test');
   });
 });

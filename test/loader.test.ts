@@ -13,9 +13,10 @@
 // limitations under the License.
 
 import assert from 'node:assert/strict';
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
+import { Readable } from 'node:stream';
 import test, { describe } from 'node:test';
 import { isGzipBuffer, loadTraceFromFile, parseTraceJson } from '../src/engine/loader.js';
 
@@ -98,6 +99,35 @@ describe('Trace Loader', () => {
   test('loadTraceFromFile throws when file is missing', async () => {
     await assert.rejects(() => loadTraceFromFile('/non/existent/path.json'), {
       message: /Trace file not found/,
+    });
+  });
+
+  test('loadTraceFromFile reads JSON from stdin when the path is -', async () => {
+    const fixturePath = path.resolve(import.meta.dirname, 'fixtures/basic-trace.json');
+    const stdin = Readable.from([await readFile(fixturePath)]);
+    const loaded = await loadTraceFromFile('-', undefined, stdin);
+
+    assert.equal(loaded.parsedTrace.data.Meta.mainFrameURL, 'https://example.com/test');
+  });
+
+  test('loadTraceFromFile reads gzip data from stdin when the path is -', async () => {
+    const fixturePath = path.resolve(import.meta.dirname, 'fixtures/basic-trace.json.gz');
+    const stdin = Readable.from([await readFile(fixturePath)]);
+    const loaded = await loadTraceFromFile('-', undefined, stdin);
+
+    assert.equal(loaded.parsedTrace.data.Meta.mainFrameURL, 'https://example.com/test');
+  });
+
+  test('loadTraceFromFile rejects empty stdin', async () => {
+    await assert.rejects(() => loadTraceFromFile('-', undefined, Readable.from([])), {
+      message: /^No trace data received on stdin\./,
+    });
+  });
+
+  test('loadTraceFromFile rejects stdin from an interactive terminal', async () => {
+    const stdin = Object.assign(Readable.from([]), { isTTY: true });
+    await assert.rejects(() => loadTraceFromFile('-', undefined, stdin), {
+      message: /^No trace data on stdin\. Pipe a trace into the command/,
     });
   });
 });

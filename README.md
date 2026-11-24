@@ -269,6 +269,13 @@ trace-engine-cli trace.json.gz --format md
 trace-engine-cli --help
 ```
 
+Pass `-` as the file to read the trace from stdin. Plain JSON and gzip data are both accepted. `scan` reads files and directories only.
+
+```bash
+cat trace.json.gz | trace-engine-cli -
+curl -s https://example.com/trace.json | trace-engine-cli tasks - --top 5
+```
+
 ### Global Options
 
 | Option | Type | Default | Description |
