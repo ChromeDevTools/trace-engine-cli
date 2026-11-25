@@ -442,3 +442,80 @@ describe('CLI Dispatcher', () => {
     );
   });
 });
+
+describe('CLI option validation', () => {
+  const tracePath = path.resolve(import.meta.dirname, 'fixtures/basic-trace.json');
+  const fixturesDir = path.resolve(import.meta.dirname, 'fixtures');
+  const cli = ['node', 'trace-engine-cli'];
+
+  test('rejects negative --min-duration on tasks', async () => {
+    await assert.rejects(
+      captureCliOutput([...cli, 'tasks', tracePath, '--min-duration', '-5']),
+      /--min-duration must be a number >= 0\./,
+    );
+  });
+
+  test('rejects non-numeric --min-duration on tasks', async () => {
+    await assert.rejects(
+      captureCliOutput([...cli, 'tasks', tracePath, '--min-duration', 'abc']),
+      /--min-duration must be a number >= 0\./,
+    );
+  });
+
+  test('accepts --min-duration 0 on tasks', async () => {
+    const output = await captureCliOutput([...cli, 'tasks', tracePath, '--min-duration', '0']);
+    assert.match(output, /^mode: list$/m);
+  });
+
+  test('rejects --time-range on diff', async () => {
+    await assert.rejects(
+      captureCliOutput([
+        ...cli,
+        'diff',
+        tracePath,
+        '--window-a',
+        '0,50',
+        '--window-b',
+        '50,100',
+        '--time-range',
+        '0,10',
+      ]),
+      /Unknown arguments: time-range/,
+    );
+  });
+
+  test('rejects --time-range on threads', async () => {
+    await assert.rejects(
+      captureCliOutput([...cli, 'threads', tracePath, '--time-range', '0,10']),
+      /Unknown arguments: time-range/,
+    );
+  });
+
+  test('rejects --absolute-timestamps on threads', async () => {
+    await assert.rejects(
+      captureCliOutput([...cli, 'threads', tracePath, '--absolute-timestamps']),
+      /Unknown arguments: absolute-timestamps/,
+    );
+  });
+
+  test('rejects --time-range on scan', async () => {
+    await assert.rejects(
+      captureCliOutput([...cli, 'scan', fixturesDir, '--name', 'RunTask', '--time-range', '0,10']),
+      /Unknown arguments: time-range/,
+    );
+  });
+
+  test('rejects --absolute-timestamps on scan', async () => {
+    await assert.rejects(
+      captureCliOutput([...cli, 'scan', fixturesDir, '--name', 'RunTask', '--absolute-timestamps']),
+      /Unknown arguments: absolute-timestamps/,
+    );
+  });
+
+  test('rejects --bucket that creates more than 1000 buckets on profile', async () => {
+    await assert.rejects(
+      captureCliOutput([...cli, 'profile', tracePath, '--bucket', '10us']),
+      /Bucket size 0\.01ms creates 16000 buckets over 160ms\. The maximum is 1000\./,
+    );
+  });
+});
