@@ -70,7 +70,7 @@ trace-engine-cli/
 
 ### 2.3. Main Thread Category Calculation
 - **No Flat Duration Summation**: Chromium traces contain deeply nested event slices (e.g. `RunTask` -> `EvaluateScript` -> `FunctionCall` -> `Layout`). Summing raw `entry.dur` across all entries results in severe double/triple counting (>100% trace time).
-- **TraceTree Self-Times**: Main thread categories (Scripting, Layout, Rendering, GC, System, Idle) in [`src/engine/extractors/overview.ts`](src/engine/extractors/overview.ts) MUST be derived from non-overlapping `TraceTree.BottomUpRootNode` self-times so that `scripting + layout + rendering + gc + system + idle === totalDurationMs`.
+- **TraceTree Self-Times**: Main thread categories (Scripting, Style, Layout, Paint, Composite, GC, Interrupts, System, Idle) in [`src/engine/extractors/overview.ts`](src/engine/extractors/overview.ts) MUST be derived from non-overlapping `TraceTree.BottomUpRootNode` self-times so that `scripting + style + layout + paint + composite + gc + interrupt + system + idle === totalDurationMs`.
 
 ### 2.4. Safe File Reading & No TOCTOU
 - Do **not** use `fs.existsSync` immediately before `fs.readFileSync`.

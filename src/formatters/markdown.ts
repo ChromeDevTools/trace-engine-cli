@@ -74,9 +74,12 @@ export function formatOverviewMarkdown(overview: OverviewResult): string {
   const total = b.totalMs > 0 ? b.totalMs : 1;
   const rows = [
     { name: 'Scripting', ms: b.scriptingMs },
+    { name: 'Style', ms: b.styleMs },
     { name: 'Layout', ms: b.layoutMs },
-    { name: 'Rendering', ms: b.renderingMs },
+    { name: 'Paint', ms: b.paintMs },
+    { name: 'Composite', ms: b.compositeMs },
     { name: 'Garbage Collection', ms: b.gcMs },
+    { name: 'Interrupts (tracer, throttling)', ms: b.interruptMs },
     { name: 'System', ms: b.systemMs },
     { name: 'Idle', ms: b.idleMs },
   ];

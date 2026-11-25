@@ -1,0 +1,195 @@
+[
+  {
+    "args": {
+      "name": "Browser"
+    },
+    "cat": "__metadata",
+    "name": "process_name",
+    "ph": "M",
+    "pid": 1,
+    "tid": 1,
+    "ts": 0
+  },
+  {
+    "args": {
+      "name": "Renderer"
+    },
+    "cat": "__metadata",
+    "name": "process_name",
+    "ph": "M",
+    "pid": 100,
+    "tid": 1,
+    "ts": 0
+  },
+  {
+    "args": {
+      "name": "CrBrowserMain"
+    },
+    "cat": "__metadata",
+    "name": "thread_name",
+    "ph": "M",
+    "pid": 1,
+    "tid": 1,
+    "ts": 0
+  },
+  {
+    "args": {
+      "name": "CrRendererMain"
+    },
+    "cat": "__metadata",
+    "name": "thread_name",
+    "ph": "M",
+    "pid": 100,
+    "tid": 1,
+    "ts": 0
+  },
+  {
+    "args": {
+      "data": {
+        "frames": [
+          {
+            "frame": "FRAME_0",
+            "url": "https://example.com/test",
+            "isOutermostMainFrame": true,
+            "isInPrimaryMainFrame": true,
+            "processId": 100
+          }
+        ]
+      }
+    },
+    "cat": "disabled-by-default-devtools.timeline",
+    "name": "TracingStartedInBrowser",
+    "ph": "I",
+    "pid": 1,
+    "tid": 1,
+    "ts": 1000000
+  },
+  {
+    "args": {},
+    "cat": "devtools.timeline",
+    "name": "RunTask",
+    "ph": "X",
+    "pid": 100,
+    "tid": 1,
+    "ts": 1010000,
+    "dur": 30000
+  },
+  {
+    "args": {
+      "beginData": {
+        "frame": "FRAME_0"
+      }
+    },
+    "cat": "devtools.timeline",
+    "name": "UpdateLayoutTree",
+    "ph": "X",
+    "pid": 100,
+    "tid": 1,
+    "ts": 1011000,
+    "dur": 4000
+  },
+  {
+    "args": {
+      "beginData": {
+        "frame": "FRAME_0",
+        "dirtyObjects": 1,
+        "partialLayout": false,
+        "totalObjects": 1
+      },
+      "endData": {
+        "layoutRoots": []
+      }
+    },
+    "cat": "devtools.timeline",
+    "name": "Layout",
+    "ph": "X",
+    "pid": 100,
+    "tid": 1,
+    "ts": 1015000,
+    "dur": 3000
+  },
+  {
+    "args": {},
+    "cat": "devtools.timeline",
+    "name": "PrePaint",
+    "ph": "X",
+    "pid": 100,
+    "tid": 1,
+    "ts": 1018000,
+    "dur": 1000
+  },
+  {
+    "args": {
+      "data": {
+        "frame": "FRAME_0",
+        "layerId": 1
+      }
+    },
+    "cat": "devtools.timeline",
+    "name": "Paint",
+    "ph": "X",
+    "pid": 100,
+    "tid": 1,
+    "ts": 1019000,
+    "dur": 2000
+  },
+  {
+    "args": {},
+    "cat": "devtools.timeline",
+    "name": "Layerize",
+    "ph": "X",
+    "pid": 100,
+    "tid": 1,
+    "ts": 1021000,
+    "dur": 1000
+  },
+  {
+    "args": {},
+    "cat": "devtools.timeline",
+    "name": "Commit",
+    "ph": "X",
+    "pid": 100,
+    "tid": 1,
+    "ts": 1022000,
+    "dur": 1000
+  },
+  {
+    "args": {},
+    "cat": "devtools.timeline",
+    "name": "Decode Image",
+    "ph": "X",
+    "pid": 100,
+    "tid": 1,
+    "ts": 1023000,
+    "dur": 1000
+  },
+  {
+    "args": {},
+    "cat": "v8",
+    "name": "V8.InvokeApiInterruptCallbacks",
+    "ph": "X",
+    "pid": 100,
+    "tid": 1,
+    "ts": 1024000,
+    "dur": 5000
+  },
+  {
+    "args": {
+      "data": {
+        "frame": "FRAME_0",
+        "functionName": "render",
+        "scriptId": "1",
+        "url": "https://example.com/app.js",
+        "lineNumber": 1,
+        "columnNumber": 1
+      }
+    },
+    "cat": "devtools.timeline",
+    "name": "FunctionCall",
+    "ph": "X",
+    "pid": 100,
+    "tid": 1,
+    "ts": 1029000,
+    "dur": 6000
+  }
+]

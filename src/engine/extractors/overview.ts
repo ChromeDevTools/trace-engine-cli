@@ -172,14 +172,15 @@ export function extractOverview(
   }
 
   // 4. Main Thread Breakdown (Derived from TraceTree self-times to eliminate double-counting)
-  const breakdown = {
+  const work = {
     scriptingMs: 0,
+    styleMs: 0,
     layoutMs: 0,
-    renderingMs: 0,
+    paintMs: 0,
+    compositeMs: 0,
     gcMs: 0,
+    interruptMs: 0,
     systemMs: 0,
-    idleMs: 0,
-    totalMs: 0,
   };
 
   const mainThread = getRendererThread(data, options?.threadId);
@@ -200,6 +201,7 @@ export function extractOverview(
       endTime: engine.Types.Timing.Micro(milliToMicro(maxMs)),
     });
 
+    const { Name } = engine.Types.Events;
     const children = bottomUp.children();
     for (const node of children.values()) {
       if (node.selfTime <= 0) continue;
@@ -207,55 +209,71 @@ export function extractOverview(
       const name = node.event?.name || String(node.id) || '';
 
       if (
-        name === 'MajorGC' ||
-        name === 'MinorGC' ||
-        name === 'GCEvent' ||
+        name === Name.MAJOR_GC ||
+        name === Name.MINOR_GC ||
+        name === Name.GC ||
         name.toLowerCase().startsWith('v8.gc')
       ) {
-        breakdown.gcMs += selfTimeMs;
-      } else if (name === 'Layout' || name === 'UpdateLayoutTree' || name === 'InvalidateLayout') {
-        breakdown.layoutMs += selfTimeMs;
+        work.gcMs += selfTimeMs;
+      } else if (name === Name.RECALC_STYLE) {
+        work.styleMs += selfTimeMs;
+      } else if (name === Name.LAYOUT || name === Name.INVALIDATE_LAYOUT) {
+        work.layoutMs += selfTimeMs;
       } else if (
-        name === 'UpdateLayerTree' ||
-        name === 'Layerize' ||
-        name === 'Paint' ||
-        name === 'CompositeLayers' ||
-        name === 'RasterTask' ||
-        name === 'DecodeImage'
+        name === Name.PRE_PAINT ||
+        name === Name.PAINT ||
+        name === Name.PAINT_IMAGE ||
+        name === Name.RASTER_TASK ||
+        name === Name.DECODE_IMAGE ||
+        name === Name.UPDATE_LAYER
       ) {
-        breakdown.renderingMs += selfTimeMs;
+        work.paintMs += selfTimeMs;
       } else if (
-        name === 'EvaluateScript' ||
-        name === 'FunctionCall' ||
-        name.startsWith('v8.compile') ||
+        name === Name.UPDATE_LAYER_TREE ||
+        name === Name.LAYERIZE ||
+        name === Name.COMPOSITE_LAYERS ||
+        name === Name.COMMIT
+      ) {
+        work.compositeMs += selfTimeMs;
+      } else if (name === 'V8.InvokeApiInterruptCallbacks') {
+        work.interruptMs += selfTimeMs;
+      } else if (
+        name === Name.EVALUATE_SCRIPT ||
+        name === Name.FUNCTION_CALL ||
+        name.startsWith(Name.COMPILE) ||
         name === 'v8.callFunction' ||
-        name === 'RunMicrotasks' ||
+        name === Name.RUN_MICROTASKS ||
         name === 'v8.run' ||
-        name === 'TimerFire' ||
-        name === 'FireAnimationFrame' ||
-        name === 'EventDispatch'
+        name === Name.TIMER_FIRE ||
+        name === Name.FIRE_ANIMATION_FRAME ||
+        name === Name.EVENT_DISPATCH
       ) {
-        breakdown.scriptingMs += selfTimeMs;
+        work.scriptingMs += selfTimeMs;
       } else {
-        breakdown.systemMs += selfTimeMs;
+        work.systemMs += selfTimeMs;
       }
     }
   }
 
-  const activeWork =
-    breakdown.scriptingMs +
-    breakdown.layoutMs +
-    breakdown.renderingMs +
-    breakdown.gcMs +
-    breakdown.systemMs;
-
-  breakdown.idleMs = round(Math.max(0, durationMs - activeWork));
-  breakdown.scriptingMs = round(breakdown.scriptingMs);
-  breakdown.layoutMs = round(breakdown.layoutMs);
-  breakdown.renderingMs = round(breakdown.renderingMs);
-  breakdown.gcMs = round(breakdown.gcMs);
-  breakdown.systemMs = round(breakdown.systemMs);
-  breakdown.totalMs = durationMs;
+  let activeWork = 0;
+  // Round cumulative time so category rounding cannot add or remove time from the total.
+  function roundKind(ms: number): number {
+    const previous = round(activeWork);
+    activeWork += ms;
+    return round(round(activeWork) - previous);
+  }
+  const breakdown = {
+    scriptingMs: roundKind(work.scriptingMs),
+    styleMs: roundKind(work.styleMs),
+    layoutMs: roundKind(work.layoutMs),
+    paintMs: roundKind(work.paintMs),
+    compositeMs: roundKind(work.compositeMs),
+    gcMs: roundKind(work.gcMs),
+    interruptMs: roundKind(work.interruptMs),
+    systemMs: roundKind(work.systemMs),
+    idleMs: round(Math.max(0, durationMs - round(activeWork))),
+    totalMs: durationMs,
+  };
 
   // 5. Warnings
   const warnings: string[] = [];

@@ -101,7 +101,7 @@ Use `trace-engine-cli` to inspect, profile, and diagnose performance recordings 
 ## 3. Command Reference
 
 ### `trace-engine-cli <file>` / `trace-engine-cli overview <file>`
-High-level trace metadata, duration, Core Web Vitals (LCP, INP, CLS), and main-thread category breakdown (Scripting, Layout, Rendering, GC, System, Idle). Calling `trace-engine-cli <file>` without `overview` also prints the `# Drill-down commands:` reference footer.
+High-level trace metadata, duration, Core Web Vitals (LCP, INP, CLS), and a breakdown of main-thread time by category. Calling `trace-engine-cli <file>` without `overview` also prints the `# Drill-down commands:` reference footer.
 ```bash
 trace-engine-cli trace.json.gz
 ```
@@ -314,11 +314,12 @@ All time-range inputs (`--time-range`, `--window-a`, `--window-b`, `--bucket`) s
 ## Subcommands
 
 ### 1. `overview` (default)
-High-level trace metadata, Core Web Vitals (FCP, LCP, CLS, INP), non-overlapping main-thread category breakdown (Scripting, Layout, Rendering, GC, System, Idle), and diagnostic warnings.
+High-level trace metadata, Core Web Vitals (FCP, LCP, CLS, INP), a non-overlapping breakdown of main-thread time, and diagnostic warnings.
 
 The breakdown uses the same instrumented timeline events with and without CPU
 samples. With `--thread PID:TID`, the breakdown describes that
 renderer thread and Web Vitals still describe the page.
+Style recalculation appears in `styleMs`, and `interruptMs` tracks V8 API interrupt callbacks used by the tracer and CPU throttling.
 
 ```bash
 # Default invocation (includes the drill-down commands footer)
@@ -351,11 +352,14 @@ coreWebVitals:
   inp: null
 mainThreadBreakdown:
   scriptingMs: 1.69
-  layoutMs: 80.13
-  renderingMs: 17.9
+  styleMs: 30
+  layoutMs: 50.13
+  paintMs: 14.9
+  compositeMs: 3
   gcMs: 0.07
-  systemMs: 233.52
-  idleMs: 5057.64
+  interruptMs: 100
+  systemMs: 133.52
+  idleMs: 5057.65
   totalMs: 5390.96
 warnings[1]: 1 render-blocking resource(s) detected.
 
