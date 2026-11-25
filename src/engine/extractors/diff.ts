@@ -13,7 +13,7 @@
 // limitations under the License.
 
 import type { TimeRange } from '../../utils/filter.js';
-import { round } from '../../utils/units.js';
+import { microToMilli, milliToMicro, round } from '../../utils/units.js';
 import { getRendererThread, rendererCpuFilter } from '../helpers.js';
 import type { LoadedTrace } from '../loader.js';
 import type { DiffEntryItem, DiffResult } from '../types.js';
@@ -67,8 +67,8 @@ export function extractDiff(loadedTrace: LoadedTrace, options: ExtractDiffOption
     const bottomUp = new engine.Extras.TraceTree.BottomUpRootNode(mainThreadEntries, {
       textFilter: { accept: () => true },
       filters: [rendererCpuFilter(loadedTrace)],
-      startTime: engine.Types.Timing.Milli(range.startMs),
-      endTime: engine.Types.Timing.Milli(range.endMs),
+      startTime: engine.Types.Timing.Micro(milliToMicro(range.startMs)),
+      endTime: engine.Types.Timing.Micro(milliToMicro(range.endMs)),
     });
 
     const map = new Map<string, FnStats>();
@@ -82,15 +82,16 @@ export function extractDiff(loadedTrace: LoadedTrace, options: ExtractDiffOption
 
       if (fnName === '(root)' || fnName === '(idle)') continue;
 
-      totalActive += node.selfTime;
+      const selfTimeMs = microToMilli(node.selfTime);
+      totalActive += selfTimeMs;
       const existing = map.get(fnName);
       if (existing) {
-        existing.selfTimeMs += node.selfTime;
+        existing.selfTimeMs += selfTimeMs;
       } else {
         map.set(fnName, {
           name: fnName,
           url: frame?.url,
-          selfTimeMs: node.selfTime,
+          selfTimeMs,
         });
       }
     }

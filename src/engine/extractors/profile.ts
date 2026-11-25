@@ -13,10 +13,13 @@
 // limitations under the License.
 
 import type { TimeRange } from '../../utils/filter.js';
-import { microToMilli, round } from '../../utils/units.js';
+import { microToMilli, milliToMicro, round } from '../../utils/units.js';
 import { getRendererThread, MISSING_CPU_SAMPLES, rendererCpuFilter } from '../helpers.js';
 import type { LoadedTrace } from '../loader.js';
 import type { ProfileResult } from '../types.js';
+
+export const MIN_BUCKET_MS = 0.01;
+export const MAX_BUCKETS = 1000;
 
 export interface ExtractProfileOptions {
   threadId?: string;
@@ -40,8 +43,22 @@ export function extractProfile(
   const endMs = options?.timeRange ? options.timeRange.endMs : round(microToMilli(traceBounds.max));
 
   const totalRangeMs = Math.max(1, endMs - startMs);
-  const bucketSizeMs = options?.bucketMs ?? Math.max(10, round(totalRangeMs / 20));
+  if (options?.bucketMs !== undefined && options.bucketMs < MIN_BUCKET_MS) {
+    throw new Error(
+      `Bucket size ${options.bucketMs}ms is below the minimum of ${MIN_BUCKET_MS}ms.`,
+    );
+  }
+  const bucketSizeMs = round(options?.bucketMs ?? Math.max(10, totalRangeMs / 20));
   const topCount = options?.top ?? 3;
+
+  const rangeMs = endMs - startMs;
+  if (bucketSizeMs < rangeMs / MAX_BUCKETS) {
+    const bucketCount = Math.ceil(rangeMs / bucketSizeMs);
+    const minBucketMs = Math.ceil((rangeMs / MAX_BUCKETS) * 100) / 100;
+    throw new Error(
+      `Bucket size ${bucketSizeMs}ms creates ${bucketCount} buckets over ${round(rangeMs)}ms. The maximum is ${MAX_BUCKETS}. Use a bucket size of at least ${minBucketMs}ms.`,
+    );
+  }
 
   const result: ProfileResult = {
     threadId: options?.threadId,
@@ -66,8 +83,8 @@ export function extractProfile(
     const bottomUp = new engine.Extras.TraceTree.BottomUpRootNode(mainThread.entries, {
       textFilter: { accept: () => true },
       filters: [cpuFilter],
-      startTime: engine.Types.Timing.Milli(currentStart),
-      endTime: engine.Types.Timing.Milli(currentEnd),
+      startTime: engine.Types.Timing.Micro(milliToMicro(currentStart)),
+      endTime: engine.Types.Timing.Micro(milliToMicro(currentEnd)),
     });
 
     const funcList: Array<{ name: string; url?: string; selfTimeMs: number }> = [];
@@ -82,11 +99,12 @@ export function extractProfile(
       // Exclude generic root markers from active work
       if (fnName === '(root)' || fnName === '(idle)') continue;
 
-      totalActiveMs += node.selfTime;
+      const selfTimeMs = microToMilli(node.selfTime);
+      totalActiveMs += selfTimeMs;
       funcList.push({
         name: fnName,
         url: frame?.url || undefined,
-        selfTimeMs: round(node.selfTime),
+        selfTimeMs: round(selfTimeMs),
       });
     }
 

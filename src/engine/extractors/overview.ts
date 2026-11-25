@@ -13,7 +13,7 @@
 // limitations under the License.
 
 import type { TimeRange } from '../../utils/filter.js';
-import { microToMilli, round } from '../../utils/units.js';
+import { microToMilli, milliToMicro, round } from '../../utils/units.js';
 import {
   findInsightEntry,
   getRendererThread,
@@ -197,14 +197,15 @@ export function extractOverview(
             !engine.Types.Events.isPhaseAsync(event.ph),
         },
       ],
-      startTime: engine.Types.Timing.Milli(minMs),
-      endTime: engine.Types.Timing.Milli(maxMs),
+      startTime: engine.Types.Timing.Micro(milliToMicro(minMs)),
+      endTime: engine.Types.Timing.Micro(milliToMicro(maxMs)),
     });
 
     const { Name } = engine.Types.Events;
     const children = bottomUp.children();
     for (const node of children.values()) {
       if (node.selfTime <= 0) continue;
+      const selfTimeMs = microToMilli(node.selfTime);
       const name = node.event?.name || String(node.id) || '';
 
       if (
@@ -213,11 +214,11 @@ export function extractOverview(
         name === Name.GC ||
         name.toLowerCase().startsWith('v8.gc')
       ) {
-        work.gcMs += node.selfTime;
+        work.gcMs += selfTimeMs;
       } else if (name === Name.RECALC_STYLE) {
-        work.styleMs += node.selfTime;
+        work.styleMs += selfTimeMs;
       } else if (name === Name.LAYOUT || name === Name.INVALIDATE_LAYOUT) {
-        work.layoutMs += node.selfTime;
+        work.layoutMs += selfTimeMs;
       } else if (
         name === Name.PRE_PAINT ||
         name === Name.PAINT ||
@@ -226,16 +227,16 @@ export function extractOverview(
         name === Name.DECODE_IMAGE ||
         name === Name.UPDATE_LAYER
       ) {
-        work.paintMs += node.selfTime;
+        work.paintMs += selfTimeMs;
       } else if (
         name === Name.UPDATE_LAYER_TREE ||
         name === Name.LAYERIZE ||
         name === Name.COMPOSITE_LAYERS ||
         name === Name.COMMIT
       ) {
-        work.compositeMs += node.selfTime;
+        work.compositeMs += selfTimeMs;
       } else if (name === 'V8.InvokeApiInterruptCallbacks') {
-        work.interruptMs += node.selfTime;
+        work.interruptMs += selfTimeMs;
       } else if (
         name === Name.EVALUATE_SCRIPT ||
         name === Name.FUNCTION_CALL ||
@@ -247,9 +248,9 @@ export function extractOverview(
         name === Name.FIRE_ANIMATION_FRAME ||
         name === Name.EVENT_DISPATCH
       ) {
-        work.scriptingMs += node.selfTime;
+        work.scriptingMs += selfTimeMs;
       } else {
-        work.systemMs += node.selfTime;
+        work.systemMs += selfTimeMs;
       }
     }
   }

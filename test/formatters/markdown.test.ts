@@ -463,6 +463,7 @@ describe('Markdown Formatter', () => {
       totalFilesScanned: 10,
       totalFilesMatched: 1,
       totalEventsMatched: 3,
+      skippedFiles: [],
       matchedFiles: [
         {
           file: 'fixtures/shifts-trace.json',
@@ -488,9 +489,36 @@ describe('Markdown Formatter', () => {
       totalFilesMatched: 0,
       totalEventsMatched: 0,
       matchedFiles: [],
+      skippedFiles: [],
     };
     const output = formatScanMarkdown(scan);
     assert.ok(output.includes('# Trace Scan Results'));
+    assert.ok(output.includes('No matching trace files found.'));
+    assert.ok(!output.includes('Files Skipped'));
+  });
+
+  test('formatScanMarkdown lists skipped files with their reason', () => {
+    const scan: ScanResult = {
+      query: { names: ['RunTask'] },
+      totalFilesScanned: 3,
+      totalFilesMatched: 0,
+      totalEventsMatched: 0,
+      matchedFiles: [],
+      skippedFiles: [
+        {
+          file: 'traces/broken|1.json.gz',
+          reason: 'Could not decompress file: incorrect header check',
+        },
+      ],
+    };
+    const output = formatScanMarkdown(scan);
+    assert.ok(output.includes('- **Files Skipped**: 1'));
+    assert.ok(output.includes('## Skipped Files'));
+    assert.ok(
+      output.includes(
+        '| `traces/broken\\|1.json.gz` | Could not decompress file: incorrect header check |',
+      ),
+    );
     assert.ok(output.includes('No matching trace files found.'));
   });
 
@@ -500,6 +528,7 @@ describe('Markdown Formatter', () => {
       totalFilesScanned: 20,
       totalFilesMatched: 10,
       totalEventsMatched: 25,
+      skippedFiles: [],
       matchedFiles: [
         {
           file: 'path/to|file.json',
@@ -554,6 +583,7 @@ describe('Markdown Formatter', () => {
         totalFilesMatched: 0,
         totalEventsMatched: 0,
         matchedFiles: [],
+        skippedFiles: [],
       },
       'scan',
     );

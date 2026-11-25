@@ -570,24 +570,39 @@ export function formatScanMarkdown(result: ScanResult): string {
     lines.push(`- **Files Matched**: ${result.totalFilesMatched}`);
   }
   lines.push(`- **Total Events Matched**: ${result.totalEventsMatched}`);
+  if (result.skippedFiles.length > 0) {
+    lines.push(`- **Files Skipped**: ${result.skippedFiles.length}`);
+  }
   lines.push('');
 
   if (result.matchedFiles.length === 0) {
     lines.push('No matching trace files found.');
-    return lines.join('\n');
+  } else {
+    lines.push('| File | Matches | Categories | First Event | First Event Timestamp |');
+    lines.push('|---|---|---|---|---|');
+    for (const item of result.matchedFiles) {
+      const safeFile = item.file.replace(/\|/g, '\\|');
+      const cats =
+        item.categories.length > 0 ? item.categories.join(', ').replace(/\|/g, '\\|') : '-';
+      const firstEvent = item.firstEventName
+        ? `\`${item.firstEventName.replace(/\|/g, '\\|')}\``
+        : '-';
+      const firstTs = item.firstEventTsMs !== undefined ? formatMs(item.firstEventTsMs) : '-';
+      lines.push(`| \`${safeFile}\` | ${item.matchCount} | ${cats} | ${firstEvent} | ${firstTs} |`);
+    }
   }
 
-  lines.push('| File | Matches | Categories | First Event | First Event Timestamp |');
-  lines.push('|---|---|---|---|---|');
-  for (const item of result.matchedFiles) {
-    const safeFile = item.file.replace(/\|/g, '\\|');
-    const cats =
-      item.categories.length > 0 ? item.categories.join(', ').replace(/\|/g, '\\|') : '-';
-    const firstEvent = item.firstEventName
-      ? `\`${item.firstEventName.replace(/\|/g, '\\|')}\``
-      : '-';
-    const firstTs = item.firstEventTsMs !== undefined ? formatMs(item.firstEventTsMs) : '-';
-    lines.push(`| \`${safeFile}\` | ${item.matchCount} | ${cats} | ${firstEvent} | ${firstTs} |`);
+  if (result.skippedFiles.length > 0) {
+    lines.push('');
+    lines.push('## Skipped Files');
+    lines.push('');
+    lines.push('| File | Reason |');
+    lines.push('|---|---|');
+    for (const item of result.skippedFiles) {
+      const safeFile = item.file.replace(/\|/g, '\\|');
+      const safeReason = item.reason.replace(/\|/g, '\\|');
+      lines.push(`| \`${safeFile}\` | ${safeReason} |`);
+    }
   }
 
   return lines.join('\n');

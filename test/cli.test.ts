@@ -13,6 +13,8 @@
 // limitations under the License.
 
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -102,6 +104,110 @@ describe('CLI Dispatcher', () => {
       'tasks,unknown',
     ];
     await assert.rejects(() => captureCliOutput(args), /Unknown report section "unknown"/);
+  });
+
+  test('applies report task and network limits like the standalone commands', async () => {
+    const fixture = path.resolve(import.meta.dirname, 'fixtures/navigation-cwv-trace.json');
+    const cli = ['node', 'trace-engine-cli'];
+    const format = ['-f', 'json'];
+    const json = JSON.parse(
+      await captureCliOutput([
+        ...cli,
+        'report',
+        fixture,
+        '--sections',
+        'tasks,network',
+        '--tasks-tree',
+        'bottom-up',
+        '--tasks-top',
+        '1',
+        '--network-top',
+        '1',
+        ...format,
+      ]),
+    );
+    const tasks = await captureCliOutput([
+      ...cli,
+      'tasks',
+      fixture,
+      '--tree',
+      'bottom-up',
+      '--top',
+      '1',
+      ...format,
+    ]);
+    const network = await captureCliOutput([
+      ...cli,
+      'network',
+      fixture,
+      '--slowest',
+      '1',
+      ...format,
+    ]);
+    assert.deepEqual(json, { tasks: JSON.parse(tasks), network: JSON.parse(network) });
+    assert.equal(json.tasks.mode, 'bottom-up');
+    assert.equal(json.tasks.tasks.length, 1);
+    assert.equal(json.network.requests.length, 1);
+  });
+
+  test('returns every request when the report network limit exceeds the request count', async () => {
+    const fixture = path.resolve(import.meta.dirname, 'fixtures/navigation-cwv-trace.json');
+    const json = JSON.parse(
+      await captureCliOutput([
+        'node',
+        'trace-engine-cli',
+        'report',
+        fixture,
+        '--sections',
+        'network',
+        '--network-top',
+        '1000000',
+        '-f',
+        'json',
+      ]),
+    );
+    assert.equal(json.network.requests.length, 4);
+  });
+
+  test('applies the selected renderer thread to the report tasks tree', async () => {
+    const fixture = path.resolve(import.meta.dirname, 'fixtures/navigation-cwv-trace.json');
+    const cli = ['node', 'trace-engine-cli'];
+    const options = ['--thread', '100:1', '-f', 'json'];
+    const report = await captureCliOutput([
+      ...cli,
+      'report',
+      fixture,
+      '--sections',
+      'tasks',
+      '--tasks-tree',
+      'bottom-up',
+      ...options,
+    ]);
+    const tasks = await captureCliOutput([
+      ...cli,
+      'tasks',
+      fixture,
+      '--tree',
+      'bottom-up',
+      ...options,
+    ]);
+    assert.deepEqual(JSON.parse(report), { tasks: JSON.parse(tasks) });
+  });
+
+  test('rejects invalid report task and network options before parsing the trace', async () => {
+    const cli = ['node', 'trace-engine-cli', 'report', 'unavailable.json'];
+    await assert.rejects(
+      () => captureCliOutput([...cli, '--tasks-top', '0']),
+      /Result limits must be positive integers/,
+    );
+    await assert.rejects(
+      () => captureCliOutput([...cli, '--network-top', '1.5']),
+      /Result limits must be positive integers/,
+    );
+    await assert.rejects(
+      () => captureCliOutput([...cli, '--tasks-tree', 'sideways']),
+      /Invalid values:[\s\S]*tasks-tree[\s\S]*sideways/,
+    );
   });
 
   test('honors relative time ranges for navigations and insight selection', async () => {
@@ -440,5 +546,97 @@ describe('CLI Dispatcher', () => {
       output,
       /No main page frame found.*DevTools Performance panel.*page target session/,
     );
+  });
+});
+
+describe('CLI option validation', () => {
+  const tracePath = path.resolve(import.meta.dirname, 'fixtures/basic-trace.json');
+  const fixturesDir = path.resolve(import.meta.dirname, 'fixtures');
+  const cli = ['node', 'trace-engine-cli'];
+
+  test('rejects negative --min-duration on tasks', async () => {
+    await assert.rejects(
+      captureCliOutput([...cli, 'tasks', tracePath, '--min-duration', '-5']),
+      /--min-duration must be a number >= 0\./,
+    );
+  });
+
+  test('rejects non-numeric --min-duration on tasks', async () => {
+    await assert.rejects(
+      captureCliOutput([...cli, 'tasks', tracePath, '--min-duration', 'abc']),
+      /--min-duration must be a number >= 0\./,
+    );
+  });
+
+  test('accepts --min-duration 0 on tasks', async () => {
+    const output = await captureCliOutput([...cli, 'tasks', tracePath, '--min-duration', '0']);
+    assert.match(output, /^mode: list$/m);
+  });
+
+  test('rejects --time-range on diff', async () => {
+    await assert.rejects(
+      captureCliOutput([
+        ...cli,
+        'diff',
+        tracePath,
+        '--window-a',
+        '0,50',
+        '--window-b',
+        '50,100',
+        '--time-range',
+        '0,10',
+      ]),
+      /Unknown arguments: time-range/,
+    );
+  });
+
+  test('rejects --time-range on threads', async () => {
+    await assert.rejects(
+      captureCliOutput([...cli, 'threads', tracePath, '--time-range', '0,10']),
+      /Unknown arguments: time-range/,
+    );
+  });
+
+  test('rejects --absolute-timestamps on threads', async () => {
+    await assert.rejects(
+      captureCliOutput([...cli, 'threads', tracePath, '--absolute-timestamps']),
+      /Unknown arguments: absolute-timestamps/,
+    );
+  });
+
+  test('rejects --time-range on scan', async () => {
+    await assert.rejects(
+      captureCliOutput([...cli, 'scan', fixturesDir, '--name', 'RunTask', '--time-range', '0,10']),
+      /Unknown arguments: time-range/,
+    );
+  });
+
+  test('rejects --absolute-timestamps on scan', async () => {
+    await assert.rejects(
+      captureCliOutput([...cli, 'scan', fixturesDir, '--name', 'RunTask', '--absolute-timestamps']),
+      /Unknown arguments: absolute-timestamps/,
+    );
+  });
+
+  test('rejects --bucket that creates more than 1000 buckets on profile', async () => {
+    await assert.rejects(
+      captureCliOutput([...cli, 'profile', tracePath, '--bucket', '10us']),
+      /Bucket size 0\.01ms creates 16000 buckets over 160ms\. The maximum is 1000\./,
+    );
+  });
+});
+
+describe('CLI stdin input', () => {
+  test('reads a piped trace when the file argument is -', () => {
+    const repoRoot = path.resolve(import.meta.dirname, '..');
+    const fixturePath = path.resolve(import.meta.dirname, 'fixtures/basic-trace.json.gz');
+    const result = spawnSync(
+      process.execPath,
+      ['--import', 'tsx/esm', 'bin/trace-engine-cli.ts', 'overview', '-', '--format', 'json'],
+      { cwd: repoRoot, input: readFileSync(fixturePath), encoding: 'utf-8' },
+    );
+
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(JSON.parse(result.stdout).mainUrl, 'https://example.com/test');
   });
 });
