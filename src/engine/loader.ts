@@ -14,6 +14,8 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
+import type { Readable } from 'node:stream';
+import { buffer as readStream } from 'node:stream/consumers';
 import zlib from 'node:zlib';
 import { loadTraceEngine, type TraceEngine } from './adapter.js';
 import { PAGE_TRACE_CAPTURE_HINT } from './helpers.js';
@@ -21,6 +23,10 @@ import { PAGE_TRACE_CAPTURE_HINT } from './helpers.js';
 export type ParsedTrace = NonNullable<
   ReturnType<InstanceType<TraceEngine['TraceModel']['Model']>['parsedTrace']>
 >;
+
+export const STDIN_PATH = '-';
+
+type StdinStream = Readable & { isTTY?: boolean };
 
 export interface LoadedTrace {
   engine: TraceEngine;
@@ -95,29 +101,22 @@ function isLanternError(arg: unknown): boolean {
   return false;
 }
 
-/**
- * Loads, decompresses, and parses a Chromium performance trace file using DevTools Trace Engine.
- *
- * Capabilities:
- * - Transparently gunzips files with `.gz` extensions or gzip magic bytes (`0x1f 0x8b`).
- * - Supports raw event arrays (`[...]`) and standard Chrome wrapper objects (`{ traceEvents: [...] }`).
- * - Normalizes `parsedTrace` retrieval via `model.parsedTrace(0)`.
- * - Filters internal non-fatal Lantern simulation errors during model parsing.
- *
- * @param filePath - Relative or absolute path to the trace file.
- * @param customEnginePath - Optional custom Trace Engine bundle path.
- * @returns Object containing the TraceEngine instance, parsedTrace data, and rawEvents.
- * @throws {Error} If the file does not exist, is invalid JSON, or lacks trace events.
- */
-export async function loadTraceFromFile(
-  filePath: string,
-  customEnginePath?: string,
-): Promise<LoadedTrace> {
-  const absolutePath = path.resolve(process.cwd(), filePath);
-  let rawBuffer: Buffer;
+async function readStdin(stdin: StdinStream): Promise<Buffer> {
+  if (stdin.isTTY) {
+    throw new Error(
+      'No trace data on stdin. Pipe a trace into the command, for example: cat trace.json.gz | trace-engine-cli -',
+    );
+  }
+  const data = await readStream(stdin);
+  if (data.length === 0) {
+    throw new Error('No trace data received on stdin.');
+  }
+  return data;
+}
 
+function readTraceFile(filePath: string, absolutePath: string): Buffer {
   try {
-    rawBuffer = fs.readFileSync(absolutePath);
+    return fs.readFileSync(absolutePath);
   } catch (err: unknown) {
     if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
       throw new Error(`Trace file not found: ${absolutePath}`);
@@ -129,8 +128,34 @@ export async function loadTraceFromFile(
     }
     throw err;
   }
+}
 
-  const jsonContent = decompressTraceBuffer(rawBuffer, absolutePath);
+/**
+ * Loads, decompresses, and parses a Chromium performance trace file using DevTools Trace Engine.
+ *
+ * Capabilities:
+ * - Transparently gunzips files with `.gz` extensions or gzip magic bytes (`0x1f 0x8b`).
+ * - Supports raw event arrays (`[...]`) and standard Chrome wrapper objects (`{ traceEvents: [...] }`).
+ * - Normalizes `parsedTrace` retrieval via `model.parsedTrace(0)`.
+ * - Filters internal non-fatal Lantern simulation errors during model parsing.
+ *
+ * @param filePath - Relative or absolute path to the trace file, or `-` to read from stdin.
+ * @param customEnginePath - Optional custom Trace Engine bundle path.
+ * @returns Object containing the TraceEngine instance, parsedTrace data, and rawEvents.
+ * @throws {Error} If the file does not exist, is invalid JSON, or lacks trace events.
+ */
+export async function loadTraceFromFile(
+  filePath: string,
+  customEnginePath?: string,
+  stdin: StdinStream = process.stdin,
+): Promise<LoadedTrace> {
+  let jsonContent: string;
+  if (filePath === STDIN_PATH) {
+    jsonContent = decompressTraceBuffer(await readStdin(stdin));
+  } else {
+    const absolutePath = path.resolve(process.cwd(), filePath);
+    jsonContent = decompressTraceBuffer(readTraceFile(filePath, absolutePath), absolutePath);
+  }
   const rawEvents = parseTraceJson(jsonContent);
 
   const engine = await loadTraceEngine(customEnginePath);
