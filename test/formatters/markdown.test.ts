@@ -138,6 +138,37 @@ describe('Markdown Formatter', () => {
     assert.ok(output.includes('## Third-Party Entities'));
   });
 
+  test('formatInsightsMarkdown lists insight model states and savings', () => {
+    const output = formatInsightsMarkdown({
+      models: [
+        {
+          key: 'DocumentLatency',
+          title: 'Document request latency',
+          state: 'fail',
+          metricSavings: { fcpMs: 600, lcpMs: 600 },
+          wastedBytes: 20100,
+        },
+        {
+          key: 'CLSCulprits',
+          title: 'Layout shift culprits',
+          state: 'fail',
+          metricSavings: { cls: 0.12 },
+        },
+        { key: 'Viewport', title: 'Optimize viewport for mobile', state: 'pass' },
+      ],
+    });
+
+    assert.ok(output.includes('## Insight Models'));
+    assert.ok(output.includes('| Insight | Key | State | Estimated Savings |'));
+    assert.ok(
+      output.includes(
+        '| Document request latency | `DocumentLatency` | fail | FCP 600ms, LCP 600ms, 19.63 KB |',
+      ),
+    );
+    assert.ok(output.includes('| Layout shift culprits | `CLSCulprits` | fail | CLS 0.12 |'));
+    assert.ok(output.includes('| Optimize viewport for mobile | `Viewport` | pass | - |'));
+  });
+
   test('formatTasksMarkdown formats tasks list', () => {
     const tasks: TasksResult = {
       mode: 'list',

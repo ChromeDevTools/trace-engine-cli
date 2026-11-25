@@ -16,6 +16,7 @@ import type {
   DiffResult,
   EventsResult,
   FindResult,
+  InsightModelSummary,
   InsightsResult,
   InteractionsResult,
   NavigationsResult,
@@ -103,6 +104,17 @@ export function formatOverviewMarkdown(overview: OverviewResult): string {
   return lines.join('\n');
 }
 
+function formatInsightSavings({ metricSavings: s, wastedBytes }: InsightModelSummary): string {
+  const parts: string[] = [];
+  if (s?.fcpMs !== undefined) parts.push(`FCP ${formatMs(s.fcpMs)}`);
+  if (s?.lcpMs !== undefined) parts.push(`LCP ${formatMs(s.lcpMs)}`);
+  if (s?.tbtMs !== undefined) parts.push(`TBT ${formatMs(s.tbtMs)}`);
+  if (s?.inpMs !== undefined) parts.push(`INP ${formatMs(s.inpMs)}`);
+  if (s?.cls !== undefined) parts.push(`CLS ${formatScore(s.cls)}`);
+  if (wastedBytes !== undefined) parts.push(formatBytes(wastedBytes));
+  return parts.join(', ') || '-';
+}
+
 export function formatInsightsMarkdown(insights: InsightsResult): string {
   const lines: string[] = ['# Diagnostic Insights', ''];
 
@@ -111,6 +123,19 @@ export function formatInsightsMarkdown(insights: InsightsResult): string {
   }
 
   if (insights.insightSetId) lines.push(`- **Insight Set ID**: \`${insights.insightSetId}\``, '');
+
+  if (insights.models && insights.models.length > 0) {
+    lines.push('## Insight Models');
+    lines.push('');
+    lines.push('| Insight | Key | State | Estimated Savings |');
+    lines.push('|---|---|---|---|');
+    for (const model of insights.models) {
+      lines.push(
+        `| ${model.title} | \`${model.key}\` | ${model.state} | ${formatInsightSavings(model)} |`,
+      );
+    }
+    lines.push('');
+  }
 
   if (insights.lcpBreakdown) {
     const l = insights.lcpBreakdown;

@@ -32,6 +32,21 @@ async function loadCwvVariant(t: TestContext, update: (events: unknown[]) => unk
   return loadTraceFromFile(file);
 }
 
+function updateDocumentRequest(
+  events: unknown[],
+  eventName: string,
+  update: (data: Record<string, unknown>) => void,
+) {
+  for (const event of events) {
+    if (getPropertyByPath(event, 'name') !== eventName) continue;
+    if (getPropertyByPath(event, 'args.data.requestId') !== 'NAV_1') continue;
+    const data = getPropertyByPath(event, 'args.data');
+    assert.ok(data && typeof data === 'object');
+    update(data as Record<string, unknown>);
+  }
+  return events;
+}
+
 describe('Insights Extractor', () => {
   let loaded: LoadedTrace;
 
@@ -219,6 +234,81 @@ describe('Insights Extractor', () => {
     assert.equal(result.thirdParties?.length, 1);
     assert.match(result.thirdParties[0].entityName, /example\.net/);
     assert.equal(result.thirdParties[0].transferSizeBytes, 16384);
+  });
+
+  test('lists the state of every insight model, failing models first', async () => {
+    const fixturePath = path.resolve(import.meta.dirname, '../fixtures/navigation-cwv-trace.json');
+    const result = extractInsights(await loadTraceFromFile(fixturePath));
+    assert.ok(result.models);
+
+    assert.deepEqual(
+      result.models.find((model) => model.key === 'LCPBreakdown'),
+      { key: 'LCPBreakdown', title: 'LCP breakdown', state: 'fail' },
+    );
+    assert.deepEqual(
+      result.models.find((model) => model.key === 'RenderBlocking'),
+      { key: 'RenderBlocking', title: 'Render-blocking requests', state: 'fail' },
+    );
+
+    const rank = { fail: 0, informative: 1, pass: 2 };
+    const ranks = result.models.map((model) => rank[model.state]);
+    assert.ok(ranks.includes(rank.pass));
+    assert.deepEqual(
+      ranks,
+      [...ranks].sort((a, b) => a - b),
+    );
+  });
+
+  test('reports metric savings in milliseconds and wasted bytes', async (t) => {
+    const trace = await loadCwvVariant(t, (events) => {
+      updateDocumentRequest(events, 'ResourceReceiveResponse', (data) => {
+        data.timing = {
+          ...(data.timing as Record<string, unknown>),
+          receiveHeadersStart: 740,
+          receiveHeadersEnd: 745,
+        };
+      });
+      return updateDocumentRequest(events, 'ResourceFinish', (data) => {
+        data.decodedBodyLength = 30000;
+      });
+    });
+    const result = extractInsights(trace);
+
+    assert.deepEqual(
+      result.models?.find((model) => model.key === 'DocumentLatency'),
+      {
+        key: 'DocumentLatency',
+        title: 'Document request latency',
+        state: 'fail',
+        metricSavings: { fcpMs: 600, lcpMs: 600 },
+        wastedBytes: 20100,
+      },
+    );
+  });
+
+  test('reports insight models that failed to compute as warnings', async (t) => {
+    const trace = await loadCwvVariant(t, (events) =>
+      updateDocumentRequest(events, 'ResourceReceiveResponse', (data) => {
+        delete data.timing;
+      }),
+    );
+    const result = extractInsights(trace);
+
+    assert.equal(
+      result.models?.find((model) => model.key === 'DocumentLatency'),
+      undefined,
+    );
+    assert.ok(
+      result.warnings?.includes(
+        'DocumentLatency insight could not be computed: missing document request timing',
+      ),
+    );
+  });
+
+  test('omits the model list when a category is selected', async () => {
+    const fixturePath = path.resolve(import.meta.dirname, '../fixtures/navigation-cwv-trace.json');
+    const result = extractInsights(await loadTraceFromFile(fixturePath), { category: 'lcp' });
+    assert.equal(result.models, undefined);
   });
 
   test('extractInsights parses CLS culprits for shifts-trace', async () => {
