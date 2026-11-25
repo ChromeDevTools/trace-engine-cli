@@ -17,7 +17,7 @@ import path from 'node:path';
 import { microToMilli } from '../../utils/units.js';
 import { getPropertyByPath } from '../helpers.js';
 import { decompressTraceBuffer, parseTraceJson } from '../loader.js';
-import type { RawTraceEvent, ScanMatchedFile, ScanResult } from '../types.js';
+import type { RawTraceEvent, ScanMatchedFile, ScanResult, ScanSkippedFile } from '../types.js';
 
 /**
  * Options for scanning multiple trace files or directories.
@@ -98,6 +98,10 @@ export function resolveScanTargets(targets: string[]): string[] {
   return sorted;
 }
 
+function errorMessage(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
+}
+
 /**
  * Scans multiple trace files or directories for events matching query criteria.
  *
@@ -123,20 +127,27 @@ export function scanTraces(options: ScanOptions): ScanResult {
     fields && fields.length > 0 ? fields.map((f) => f.split('.').pop() ?? f) : null;
 
   const matchedFiles: ScanMatchedFile[] = [];
+  const skippedFiles: ScanSkippedFile[] = [];
   let totalEventsMatched = 0;
 
   for (const filePath of files) {
+    const skip = (reason: string) => {
+      skippedFiles.push({ file: path.relative(process.cwd(), filePath), reason });
+    };
+
     let rawBuffer: Buffer;
     try {
       rawBuffer = fs.readFileSync(filePath);
-    } catch {
+    } catch (err) {
+      skip(`Could not read file: ${(err as NodeJS.ErrnoException).code ?? errorMessage(err)}`);
       continue;
     }
 
     let jsonContent: string;
     try {
       jsonContent = decompressTraceBuffer(rawBuffer, filePath);
-    } catch {
+    } catch (err) {
+      skip(`Could not decompress file: ${errorMessage(err)}`);
       continue;
     }
 
@@ -166,7 +177,8 @@ export function scanTraces(options: ScanOptions): ScanResult {
     let rawEvents: unknown[];
     try {
       rawEvents = parseTraceJson(jsonContent);
-    } catch {
+    } catch (err) {
+      skip(errorMessage(err));
       continue;
     }
 
@@ -267,5 +279,6 @@ export function scanTraces(options: ScanOptions): ScanResult {
     totalFilesMatched: matchedFiles.length,
     totalEventsMatched,
     matchedFiles: matchedFiles.slice(0, limit),
+    skippedFiles,
   };
 }

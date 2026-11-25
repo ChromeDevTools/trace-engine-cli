@@ -482,6 +482,16 @@ export interface ScanMatchedFile {
 }
 
 /**
+ * A trace file that scan could not read, decompress or parse.
+ */
+export interface ScanSkippedFile {
+  /** Relative or normalized path to the trace file. */
+  file: string;
+  /** Why the file could not be scanned. */
+  reason: string;
+}
+
+/**
  * Result of scanning multiple trace files or directories.
  */
 export interface ScanResult {
@@ -501,4 +511,6 @@ export interface ScanResult {
   totalEventsMatched: number;
   /** Ordered list of matched files, sorted by match count descending. */
   matchedFiles: ScanMatchedFile[];
+  /** Files that could not be read, decompressed or parsed, so they were not searched. */
+  skippedFiles: ScanSkippedFile[];
 }
