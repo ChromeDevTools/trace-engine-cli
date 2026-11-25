@@ -32,7 +32,7 @@ import {
 import { scanTraces } from './engine/extractors/scan.js';
 import { extractScheduling } from './engine/extractors/scheduling.js';
 import { extractShifts } from './engine/extractors/shifts.js';
-import { extractTasks } from './engine/extractors/tasks.js';
+import { type ExtractTasksOptions, extractTasks } from './engine/extractors/tasks.js';
 import { listRendererThreads } from './engine/helpers.js';
 import { loadTraceFromFile } from './engine/loader.js';
 import type { ThreadsResult } from './engine/types.js';
@@ -170,6 +170,21 @@ export async function runCli(argv: string[]): Promise<void> {
             describe: `Comma-separated analyses: ${REPORT_SECTIONS.join(', ')} (default: ${DEFAULT_REPORT_SECTIONS.join(',')})`,
           })
           .option('thread', THREAD_OPTION)
+          .option('tasks-tree', {
+            type: 'string',
+            choices: ['bottom-up', 'top-down'] satisfies NonNullable<ExtractTasksOptions['tree']>[],
+            describe: 'Show the tasks section as an aggregated call tree (default: list)',
+          })
+          .option('tasks-top', {
+            type: 'number',
+            coerce: positiveInteger,
+            describe: 'Limit the tasks section to the top N rows (default: 20)',
+          })
+          .option('network-top', {
+            type: 'number',
+            coerce: positiveInteger,
+            describe: 'Limit the network section to the N slowest requests (default: 20)',
+          })
           .option('strip-query', {
             type: 'boolean',
             describe: 'Remove URL query strings from the network section',
@@ -186,6 +201,9 @@ export async function runCli(argv: string[]): Promise<void> {
           sections,
           timeRange,
           threadId: args.thread,
+          tasksTree: args.tasksTree,
+          tasksTop: args.tasksTop,
+          networkTop: args.networkTop,
           stripQuery: args.stripQuery,
         });
         const output =

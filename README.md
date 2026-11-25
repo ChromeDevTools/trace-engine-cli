@@ -113,6 +113,8 @@ available sections.
 
 ```bash
 trace-engine-cli report trace.json.gz --sections overview,shifts,network
+trace-engine-cli report trace.json.gz --sections overview,tasks,network \
+  --thread PID:TID --tasks-tree bottom-up --tasks-top 1000000 --network-top 1000000 -f json
 ```
 
 ### `trace-engine-cli insights <file>`
@@ -351,7 +353,7 @@ mainThreadBreakdown:
 warnings[1]: 1 render-blocking resource(s) detected.
 
 # Drill-down commands:
-# - trace-engine-cli report <file> [--sections <list>]
+# - trace-engine-cli report <file> [--sections <list>] [--tasks-tree <bottom-up|top-down>] [--tasks-top <n>] [--network-top <n>]
 # - trace-engine-cli insights <file> [--category <lcp|inp|cls|render-blocking|third-parties>] [--navigation <id>]
 # - trace-engine-cli tasks <file> [--min-duration <ms>] [--tree <bottom-up|top-down>] [--url-only] [--top <n>]
 # - trace-engine-cli find <file> [--function <name>] [--url <pattern>] [--time-range <start,end>]
@@ -581,6 +583,9 @@ command's defaults.
 | `--sections <list>` | Comma-separated section names. Defaults to `overview,tasks,shifts,network`. Use `report --help` to list the available sections. |
 | `--time-range <range>` | Shared time window. Each section interprets it as its standalone command does. |
 | `--thread <PID:TID>` | Renderer thread for `overview`, `tasks`, and `profile`. |
+| `--tasks-tree <mode>` | Show `bottom-up` or `top-down` call rows in `tasks`. Defaults to the long-task list. |
+| `--tasks-top <n>` | Limit the `tasks` section to the top N rows. Defaults to 20. |
+| `--network-top <n>` | Limit the `network` section to the N slowest requests. Defaults to 20. |
 | `--strip-query` | Remove query strings from URLs in the `network` section. |
 
 ```bash
