@@ -101,20 +101,6 @@ function isLanternError(arg: unknown): boolean {
   return false;
 }
 
-/**
- * Loads, decompresses, and parses a Chromium performance trace file using DevTools Trace Engine.
- *
- * Capabilities:
- * - Transparently gunzips files with `.gz` extensions or gzip magic bytes (`0x1f 0x8b`).
- * - Supports raw event arrays (`[...]`) and standard Chrome wrapper objects (`{ traceEvents: [...] }`).
- * - Normalizes `parsedTrace` retrieval via `model.parsedTrace(0)`.
- * - Filters internal non-fatal Lantern simulation errors during model parsing.
- *
- * @param filePath - Relative or absolute path to the trace file.
- * @param customEnginePath - Optional custom Trace Engine bundle path.
- * @returns Object containing the TraceEngine instance, parsedTrace data, and rawEvents.
- * @throws {Error} If the file does not exist, is invalid JSON, or lacks trace events.
- */
 async function readStdin(stdin: StdinStream): Promise<Buffer> {
   if (stdin.isTTY) {
     throw new Error(
@@ -144,6 +130,20 @@ function readTraceFile(filePath: string, absolutePath: string): Buffer {
   }
 }
 
+/**
+ * Loads, decompresses, and parses a Chromium performance trace file using DevTools Trace Engine.
+ *
+ * Capabilities:
+ * - Transparently gunzips files with `.gz` extensions or gzip magic bytes (`0x1f 0x8b`).
+ * - Supports raw event arrays (`[...]`) and standard Chrome wrapper objects (`{ traceEvents: [...] }`).
+ * - Normalizes `parsedTrace` retrieval via `model.parsedTrace(0)`.
+ * - Filters internal non-fatal Lantern simulation errors during model parsing.
+ *
+ * @param filePath - Relative or absolute path to the trace file, or `-` to read from stdin.
+ * @param customEnginePath - Optional custom Trace Engine bundle path.
+ * @returns Object containing the TraceEngine instance, parsedTrace data, and rawEvents.
+ * @throws {Error} If the file does not exist, is invalid JSON, or lacks trace events.
+ */
 export async function loadTraceFromFile(
   filePath: string,
   customEnginePath?: string,

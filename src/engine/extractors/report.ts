@@ -22,7 +22,7 @@ import { extractOverview } from './overview.js';
 import { extractProfile } from './profile.js';
 import { extractScheduling } from './scheduling.js';
 import { extractShifts } from './shifts.js';
-import { extractTasks } from './tasks.js';
+import { type ExtractTasksOptions, extractTasks } from './tasks.js';
 
 export const REPORT_SECTIONS = [
   'overview',
@@ -44,6 +44,9 @@ interface ExtractReportOptions {
   sections: readonly ReportSection[];
   timeRange?: TimeRange;
   threadId?: string;
+  tasksTree?: ExtractTasksOptions['tree'];
+  tasksTop?: number;
+  networkTop?: number;
   stripQuery?: boolean;
 }
 
@@ -51,14 +54,14 @@ export function extractReport(
   loaded: LoadedTrace,
   options: ExtractReportOptions,
 ): Array<[ReportSection, unknown]> {
-  const { timeRange, threadId, stripQuery } = options;
+  const { timeRange, threadId, tasksTree, tasksTop, networkTop, stripQuery } = options;
   const extract: Record<ReportSection, () => unknown> = {
     overview: () => extractOverview(loaded, { timeRange, threadId }),
     insights: () => extractInsights(loaded, { timeRange }),
-    tasks: () => extractTasks(loaded, { timeRange, threadId }),
+    tasks: () => extractTasks(loaded, { timeRange, threadId, tree: tasksTree, top: tasksTop }),
     profile: () => extractProfile(loaded, { timeRange, threadId }),
     scheduling: () => extractScheduling(loaded, { timeRange }),
-    network: () => extractNetwork(loaded, { timeRange, stripQuery }),
+    network: () => extractNetwork(loaded, { timeRange, stripQuery, slowest: networkTop }),
     interactions: () => extractInteractions(loaded, { timeRange }),
     shifts: () => extractShifts(loaded, { timeRange }),
     navigations: () => extractNavigations(loaded, timeRange),

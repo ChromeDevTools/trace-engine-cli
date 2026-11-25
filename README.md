@@ -113,6 +113,8 @@ available sections.
 
 ```bash
 trace-engine-cli report trace.json.gz --sections overview,shifts,network
+trace-engine-cli report trace.json.gz --sections overview,tasks,network \
+  --thread PID:TID --tasks-tree bottom-up --tasks-top 1000000 --network-top 1000000 -f json
 ```
 
 ### `trace-engine-cli insights <file>`
@@ -214,6 +216,7 @@ trace-engine-cli scan "fixtures/**/*.json.gz" --grep "LayerTreeHostImpl"
 # Filter by category and phase across multiple files
 trace-engine-cli scan fixtures/traces/ --cat devtools.timeline --phase X
 ```
+Check `skippedFiles` in the result. Scan did not search the files in that list, so a match can be missing from them.
 
 ---
 
@@ -281,10 +284,17 @@ curl -s https://example.com/trace.json | trace-engine-cli tasks - --top 5
 | Option | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
 | `-f, --format` | `'toon' \| 'md' \| 'json'` | `'toon'` | Output serialization format |
-| `--time-range` | `string` | — | Filter window relative to trace start (e.g. `"3500,4200"`, `"3.5s,4.2s"`, `"100ms-500ms"`) |
-| `--absolute-timestamps` | `boolean` | `false` | Treat time ranges as raw absolute trace timestamps rather than relative to trace start |
 | `--trace-engine`| `string` | — | Path to a custom DevTools trace engine bundle |
 | `--help` | `boolean` | — | Show help and synopsis |
+
+### Time Range Options
+
+All commands except `threads`, `diff` and `scan` accept these options. `diff` accepts `--absolute-timestamps` for its `--window-a` and `--window-b` values. `threads` and `scan` reject both options.
+
+| Option | Type | Default | Description |
+| :--- | :--- | :--- | :--- |
+| `--time-range` | `string` | — | Filter window relative to trace start (e.g. `"3500,4200"`, `"3.5s,4.2s"`, `"100ms-500ms"`) |
+| `--absolute-timestamps` | `boolean` | `false` | Treat time ranges as raw absolute trace timestamps rather than relative to trace start |
 
 ---
 
@@ -350,7 +360,7 @@ mainThreadBreakdown:
 warnings[1]: 1 render-blocking resource(s) detected.
 
 # Drill-down commands:
-# - trace-engine-cli report <file> [--sections <list>]
+# - trace-engine-cli report <file> [--sections <list>] [--tasks-tree <bottom-up|top-down>] [--tasks-top <n>] [--network-top <n>]
 # - trace-engine-cli insights <file> [--category <lcp|inp|cls|render-blocking|third-parties>] [--navigation <id>]
 # - trace-engine-cli tasks <file> [--min-duration <ms>] [--tree <bottom-up|top-down>] [--url-only] [--top <n>]
 # - trace-engine-cli find <file> [--function <name>] [--url <pattern>] [--time-range <start,end>]
@@ -440,6 +450,8 @@ trace-engine-cli profile trace.json.gz --time-range "3.5s,4.1s"
 # Specify 50ms bucket slices and top 5 functions per slice
 trace-engine-cli profile trace.json.gz --time-range "3500ms,4100ms" --bucket 50ms --top 5
 ```
+
+`--bucket` must be at least `0.01ms`. A profile can have a maximum of 1000 buckets. If the time range divided by the bucket size is more than 1000, the command fails and shows the smallest valid bucket size.
 
 ---
 
@@ -552,6 +564,8 @@ trace-engine-cli scan "traces/*.json.gz" --cat devtools.timeline --top 10
 trace-engine-cli scan fixtures/ --name TracingStartedInBrowser --fields args.data.frames
 ```
 
+Files that scan cannot read, decompress or parse are listed in `skippedFiles` with the reason. Scan continues with the other files. A file with invalid JSON is only reported when its text contains the query, because a file without the query text cannot match.
+
 ---
 
 ### 14. `threads`
@@ -576,6 +590,9 @@ command's defaults.
 | `--sections <list>` | Comma-separated section names. Defaults to `overview,tasks,shifts,network`. Use `report --help` to list the available sections. |
 | `--time-range <range>` | Shared time window. Each section interprets it as its standalone command does. |
 | `--thread <PID:TID>` | Renderer thread for `overview`, `tasks`, and `profile`. |
+| `--tasks-tree <mode>` | Show `bottom-up` or `top-down` call rows in `tasks`. Defaults to the long-task list. |
+| `--tasks-top <n>` | Limit the `tasks` section to the top N rows. Defaults to 20. |
+| `--network-top <n>` | Limit the `network` section to the N slowest requests. Defaults to 20. |
 | `--strip-query` | Remove query strings from URLs in the `network` section. |
 
 ```bash

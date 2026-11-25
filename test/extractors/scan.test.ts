@@ -203,4 +203,85 @@ describe('Scan Extractor', () => {
       fs.rmSync(tempDir, { recursive: true, force: true });
     }
   });
+
+  test('reports no skipped files when every file can be read', () => {
+    const result = scanTraces({
+      targets: [fixturesDir],
+      names: ['LayoutShift'],
+    });
+
+    assert.deepEqual(result.skippedFiles, []);
+  });
+
+  test('reports a file that cannot be decompressed and keeps scanning', () => {
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'trace-scan-test-'));
+    try {
+      fs.writeFileSync(path.join(tempDir, 'broken.json.gz'), 'not gzip data');
+      fs.writeFileSync(
+        path.join(tempDir, 'valid.json'),
+        JSON.stringify([{ name: 'RunTask', cat: 'toplevel', ph: 'X', ts: 1000 }]),
+      );
+
+      const result = scanTraces({ targets: [tempDir], names: ['RunTask'] });
+
+      assert.equal(result.totalFilesScanned, 2);
+      assert.equal(result.totalFilesMatched, 1);
+      assert.ok(result.matchedFiles[0].file.endsWith('valid.json'));
+      assert.equal(result.skippedFiles.length, 1);
+      assert.ok(result.skippedFiles[0].file.endsWith('broken.json.gz'));
+      assert.match(result.skippedFiles[0].reason, /^Could not decompress file: /);
+    } finally {
+      fs.rmSync(tempDir, { recursive: true, force: true });
+    }
+  });
+
+  test('reports a file with invalid JSON that passes the text pre-filter', () => {
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'trace-scan-test-'));
+    try {
+      fs.writeFileSync(path.join(tempDir, 'truncated.json'), '[{"name":"RunTask","ph":"X"');
+
+      const result = scanTraces({ targets: [tempDir], names: ['RunTask'] });
+
+      assert.equal(result.totalFilesMatched, 0);
+      assert.equal(result.skippedFiles.length, 1);
+      assert.ok(result.skippedFiles[0].file.endsWith('truncated.json'));
+      assert.match(result.skippedFiles[0].reason, /^Failed to parse trace JSON: /);
+    } finally {
+      fs.rmSync(tempDir, { recursive: true, force: true });
+    }
+  });
+
+  test('does not report invalid JSON that cannot contain the query text', () => {
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'trace-scan-test-'));
+    try {
+      fs.writeFileSync(path.join(tempDir, 'truncated.json'), '[{"name":"Paint","ph":"X"');
+
+      const result = scanTraces({ targets: [tempDir], names: ['RunTask'] });
+
+      assert.equal(result.totalFilesMatched, 0);
+      assert.deepEqual(result.skippedFiles, []);
+    } finally {
+      fs.rmSync(tempDir, { recursive: true, force: true });
+    }
+  });
+
+  test('reports a file that cannot be read', {
+    skip: process.getuid?.() === 0 && 'root can read files without read permission',
+  }, () => {
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'trace-scan-test-'));
+    const unreadable = path.join(tempDir, 'unreadable.json');
+    try {
+      fs.writeFileSync(unreadable, '[]');
+      fs.chmodSync(unreadable, 0o000);
+
+      const result = scanTraces({ targets: [tempDir], names: ['RunTask'] });
+
+      assert.equal(result.skippedFiles.length, 1);
+      assert.ok(result.skippedFiles[0].file.endsWith('unreadable.json'));
+      assert.equal(result.skippedFiles[0].reason, 'Could not read file: EACCES');
+    } finally {
+      fs.chmodSync(unreadable, 0o644);
+      fs.rmSync(tempDir, { recursive: true, force: true });
+    }
+  });
 });
