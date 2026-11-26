@@ -112,6 +112,7 @@ export interface InsightEntryResult {
   navigation: InsightSet['navigation'];
   navigationId?: string;
   model: InsightModels;
+  modelErrors: InsightSet['modelErrors'];
 }
 
 /**
@@ -136,6 +137,7 @@ export function findInsightEntry(
       navigation: set.navigation,
       navigationId: traceId,
       model: set.model,
+      modelErrors: set.modelErrors,
     };
     if (navigationId) {
       if (key === navigationId || set.id === navigationId || traceId === navigationId) return entry;

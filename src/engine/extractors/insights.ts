@@ -14,10 +14,12 @@
 
 import type { TimeRange } from '../../utils/filter.js';
 import { microToMilli, round } from '../../utils/units.js';
-import { findInsightEntry } from '../helpers.js';
+import { findInsightEntry, type InsightEntryResult, type InsightModels } from '../helpers.js';
 import type { LoadedTrace } from '../loader.js';
 import type {
   InpBreakdownInsight,
+  InsightMetricSavings,
+  InsightModelSummary,
   InsightsResult,
   LcpBreakdownInsight,
   RenderBlockingInsight,
@@ -34,6 +36,42 @@ export interface ExtractInsightsOptions {
   /** Target navigation ID or InsightSet ID. Defaults to the main-frame load with LCP. */
   navigationId?: string;
   timeRange?: TimeRange;
+}
+
+type InsightModel = NonNullable<InsightModels[keyof InsightModels]>;
+
+const STATE_ORDER = { fail: 0, informative: 1, pass: 2 } as const;
+
+function summarizeMetricSavings(
+  savings: InsightModel['metricSavings'],
+): InsightMetricSavings | undefined {
+  if (!savings) return undefined;
+  const summary: InsightMetricSavings = {};
+  if (savings.FCP) summary.fcpMs = round(savings.FCP);
+  if (savings.LCP) summary.lcpMs = round(savings.LCP);
+  if (savings.TBT) summary.tbtMs = round(savings.TBT);
+  if (savings.INP) summary.inpMs = round(savings.INP);
+  if (savings.CLS) summary.cls = round(savings.CLS, 4);
+  return Object.keys(summary).length > 0 ? summary : undefined;
+}
+
+function summarizeModels(entry: InsightEntryResult): InsightModelSummary[] {
+  const models: InsightModelSummary[] = [];
+  for (const model of Object.values(entry.model)) {
+    if (!model) continue;
+    const summary: InsightModelSummary = {
+      key: model.insightKey,
+      title: model.strings.title,
+      state: model.state,
+    };
+    const metricSavings = summarizeMetricSavings(model.metricSavings);
+    if (metricSavings) summary.metricSavings = metricSavings;
+    if (model.wastedBytes && model.wastedBytes > 0) {
+      summary.wastedBytes = Math.round(model.wastedBytes);
+    }
+    models.push(summary);
+  }
+  return models.sort((a, b) => STATE_ORDER[a.state] - STATE_ORDER[b.state]);
 }
 
 /**
@@ -65,6 +103,13 @@ export function extractInsights(
   }
   const category = options?.category;
   const shouldInclude = (cat: string) => !category || category === cat;
+
+  if (!category && entry) {
+    result.models = summarizeModels(entry);
+    for (const [key, error] of Object.entries(entry.modelErrors)) {
+      if (error) warnings.push(`${key} insight could not be computed: ${error.message}`);
+    }
+  }
   const scopeToNavigation = Boolean(entry?.navigation || options?.navigationId);
   const allowGlobalFallback = !scopeToNavigation && !options?.timeRange;
 

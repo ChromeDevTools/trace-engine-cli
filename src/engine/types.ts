@@ -117,11 +117,34 @@ export interface ThirdPartyEntityInsight {
 }
 
 /**
+ * Estimated metric improvement if the issues found by an insight are fixed.
+ */
+export interface InsightMetricSavings {
+  fcpMs?: number;
+  lcpMs?: number;
+  tbtMs?: number;
+  inpMs?: number;
+  cls?: number;
+}
+
+/**
+ * Result of one DevTools insight model for the selected navigation.
+ */
+export interface InsightModelSummary {
+  key: string;
+  title: string;
+  state: 'pass' | 'fail' | 'informative';
+  metricSavings?: InsightMetricSavings;
+  wastedBytes?: number;
+}
+
+/**
  * Diagnostics and metric breakdowns for CWV bottlenecks.
  */
 export interface InsightsResult {
   navigationId?: string;
   insightSetId?: string;
+  models?: InsightModelSummary[];
   lcpBreakdown?: LcpBreakdownInsight | null;
   inpBreakdown?: InpBreakdownInsight | null;
   clsCulprits?: ClsCulpritInsight[];
