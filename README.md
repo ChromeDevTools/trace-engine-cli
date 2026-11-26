@@ -622,6 +622,22 @@ overview omits its drill-down footer in this format.
 trace-engine-cli overview trace.json.gz --format json | jq '.mainThreadBreakdown.scriptingMs'
 ```
 
+### Check thresholds in CI
+
+`jq -e` exits with code 1 when the result is `false` or `null`. Use it to fail a CI job when a metric is over a threshold:
+
+```bash
+# Fail if LCP is over 2.5 s or CLS is over 0.1
+trace-engine-cli overview trace.json.gz --format json \
+  | jq -e '(.coreWebVitals.lcp.valueMs // infinite) <= 2500 and (.coreWebVitals.cls.value // infinite) <= 0.1'
+
+# Fail if a Core Web Vital has a poor rating
+trace-engine-cli overview trace.json.gz --format json \
+  | jq -e '[.coreWebVitals[].rating] | all(. != "poor")'
+```
+
+A metric that the trace does not contain is `null`. In jq, `null <= 2500` is `true`, so `// infinite` makes the first check fail when the metric is missing.
+
 ---
 
 ## Bundling Local DevTools Trace Engine
